@@ -3,8 +3,12 @@ name: Docker Build and Push
 on:
   push:
     branches: [ main, dev_rust ]
+    paths-ignore:
+      - 'docker-compose.yml'
   pull_request:
     branches: [ main, dev_rust ]
+    paths-ignore:
+      - 'docker-compose.yml'
 
 permissions:
   contents: read

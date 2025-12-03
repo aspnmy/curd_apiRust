@@ -2,6 +2,7 @@
 # 可选值：repair（修复）、ignore（忽略）、strict（严格）
 # 默认值：strict
 # 只有写入节点才考虑数据库迁移策略
+# 首次部署需要使用repair策略，后续部署可以使用ignore策略
 services:
   # 写入节点 - 负责处理写操作和数据库迁移
   api-write:

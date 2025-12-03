@@ -40,22 +40,25 @@ async fn main() {
         let migration_strategy = std::env::var("MIGRATION_STRATEGY").unwrap_or("strict".to_string());
         
         // 运行数据库迁移
-        match run_migrations(&db_pool).await {
+        info!("开始执行数据库迁移，策略: {}", migration_strategy);
+        let result = run_migrations(&db_pool).await;
+        
+        match result {
             Ok(_) => {
                 info!("数据库迁移成功");
             },
             Err(e) => {
+                info!("数据库迁移失败: {:?}", e);
+                
                 match migration_strategy.as_str() {
-                    "repair" => {
-                        // 修复策略：尝试修复迁移记录
-                        info!("数据库迁移失败，尝试修复迁移记录: {:?}", e);
-                        // 这里可以添加修复逻辑，例如使用sqlx::migrate!().repair()
-                        // 注意：修复操作需要谨慎使用，建议在开发环境测试后再在生产环境使用
-                        info!("迁移修复功能尚未实现，请手动修复迁移记录");
-                    },
                     "ignore" => {
                         // 忽略策略：跳过迁移错误，继续运行服务
-                        info!("数据库迁移失败，忽略错误继续运行: {:?}", e);
+                        info!("忽略迁移错误，继续运行服务");
+                    },
+                    "repair" => {
+                        // 修复策略：尝试修复迁移记录
+                        info!("尝试修复迁移记录，但修复功能尚未实现");
+                        // 注意：修复操作需要谨慎使用，建议在开发环境测试后再在生产环境使用
                     },
                     _ => {
                         // 严格策略：迁移失败时退出

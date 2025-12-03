@@ -41,6 +41,7 @@ docker run -d \
   -e SERVICE_ROLE=write \
   -e SERVICE_ID=crudapi-write-01 \
   -e DATABASE_URL=postgres://user:password@postgres:5432/secret_gallery \
+  -e ALLOWED_TABLES=users,resources,encryption_keys \
   crudapi
 
 # 运行容器 - 读角色
@@ -50,13 +51,47 @@ docker run -d \
   -e SERVICE_ROLE=read \
   -e SERVICE_ID=crudapi-read-01 \
   -e DATABASE_URL=postgres://user:password@postgres:5432/secret_gallery \
+  -e ALLOWED_TABLES=users,resources \
   crudapi
 ```
 
 ### Docker Compose 部署
 
 ```yaml
-# 参考项目根目录的 docker-compose.yml
+version: '3.8'
+
+services:
+  # API服务
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: crud_api
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - HTTPS=false
+      - DATABASE_URL=postgres://crud_user:crud_password@localhost:5432/crud_db
+      - DATABASE_MAX_CONNECTIONS=10
+      - DATABASE_MIN_CONNECTIONS=2
+      - JWT_SECRET=your_secure_jwt_secret_key_here
+      - JWT_EXPIRES_IN=3600
+      - JWT_REFRESH_IN=86400
+      - ENCRYPTION_ALGORITHM=aes-256-gcm
+      - ENCRYPTION_KEY_LENGTH=32
+      - ENCRYPTION_ITERATIONS=100000
+      - SERVICE_ROLE=mixed
+      - SERVICE_ID=crud-01
+      - ALLOWED_TABLES=users,resources,encryption_keys
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+```
+
+或者使用项目根目录的 docker-compose.yml 文件：
+
+```bash
+docker-compose up -d
 ```
 
 ## 配置说明
@@ -79,6 +114,7 @@ docker run -d \
 | `ENCRYPTION_ITERATIONS` | 迭代次数 | `100000` |
 | `SERVICE_ROLE` | 服务角色（read/write/mixed） | `mixed` |
 | `SERVICE_ID` | 服务 ID | `crud-01` |
+| `ALLOWED_TABLES` | 允许操作的表名白名单，逗号分隔 | `users,resources,encryption_keys` |
 
 ## API 端点
 
@@ -90,84 +126,60 @@ GET /health
 
 ### 通用 CRUD 端点
 
-#### 创建资源
+#### 通用请求格式
 
-```
-POST /{resource_type}
+所有请求都使用 POST 方法，请求体为 JSON 格式，包含操作类型、表名、数据和条件等信息。
 
-请求体：
+```json
 {
-  "data": { /* 资源数据 */ }
+  "operation": "add", // add, check, update, isdel
+  "table_name": "users", // 表名
+  "data": { /* 操作数据 */ }, // 操作数据，用于 add 和 update
+  "where_conditions": [ /* 查询条件 */ ], // 查询条件，用于 check, update 和 isdel
+  "fields": [ /* 查询字段 */ ], // 查询字段，用于 check
+  "soft_delete_config": { /* 软删除配置 */ } // 软删除配置，用于 isdel
 }
 ```
 
-#### 查询资源列表
+#### 通用 CRUD API
 
 ```
-GET /{resource_type}
+POST /api/common
 ```
 
-#### 查询单个资源
+#### 批量操作 API
 
 ```
-GET /{resource_type}/{id}
-```
-
-#### 更新资源
-
-```
-PUT /{resource_type}/{id}
+POST /api/common/batch
 
 请求体：
 {
-  "data": { /* 资源数据 */ }
-}
-```
-
-#### 删除资源
-
-```
-DELETE /{resource_type}/{id}
-```
-
-#### 批量创建
-
-```
-POST /{resource_type}/batch
-
-请求体：
-{
-  "items": [
-    { "data": { /* 资源数据 */ } },
-    { "data": { /* 资源数据 */ } }
+  "requests": [
+    { /* 第一个请求 */ },
+    { /* 第二个请求 */ }
   ]
 }
 ```
 
-#### 批量更新
+#### 简化的 API 端点
+
+为了方便使用，提供了简化的 API 端点，对应增删改查四个操作：
 
 ```
-PUT /{resource_type}/batch
+# 添加记录
+POST /api/add
 
-请求体：
-{
-  "items": [
-    { "id": "1", "data": { /* 资源数据 */ } },
-    { "id": "2", "data": { /* 资源数据 */ } }
-  ]
-}
+# 查询记录
+POST /api/check
+
+# 更新记录
+POST /api/update
+
+# 软删除记录
+POST /api/isdel
 ```
 
-#### 批量删除
-
-```
-DELETE /{resource_type}/batch
-
-请求体：
-{
-  "ids": ["1", "2", "3"]
-}
-```
+这些简化端点的请求体与通用请求格式相同，但操作类型由路径决定。
 
 ## 服务角色
 

@@ -17,6 +17,8 @@ pub struct AppConfig {
     pub encryption: EncryptionConfig,
     /// 服务角色配置
     pub service: ServiceRoleConfig,
+    /// 允许操作的表名白名单
+    pub allowed_tables: Vec<String>,
 }
 
 /// 服务器配置
@@ -81,6 +83,14 @@ impl AppConfig {
     pub fn from_env() -> Result<Self> {
         info!("从环境变量加载配置");
         
+        // 从环境变量读取允许的表名，支持逗号分隔的字符串
+        let allowed_tables = env::var("ALLOWED_TABLES")
+            .unwrap_or("users,resources,encryption_keys".to_string())
+            .split(',')
+            .map(|table| table.trim().to_string())
+            .filter(|table| !table.is_empty())
+            .collect();
+        
         let config = Self {
             server: ServerConfig {
                 host: env::var("SERVER_HOST").unwrap_or("0.0.0.0".to_string()),
@@ -106,6 +116,7 @@ impl AppConfig {
                 role: env::var("SERVICE_ROLE").unwrap_or("mixed".to_string()),
                 id: env::var("SERVICE_ID").unwrap_or("crud-01".to_string()),
             },
+            allowed_tables,
         };
         
         Ok(config)

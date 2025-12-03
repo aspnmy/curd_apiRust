@@ -22,6 +22,7 @@ services:
       - ENCRYPTION_ITERATIONS=100000
       - SERVICE_ROLE=mixed
       - SERVICE_ID=crud-01
+      - ALLOWED_TABLES=users,resources,encryption_keys
     ports:
       - "8000:8000"
     restart: unless-stopped

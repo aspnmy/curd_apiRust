@@ -40,8 +40,6 @@ pub enum CommonServiceError {
 pub struct CommonService {
     pub db: DatabasePool,
     pub config: AppConfig,
-    // 允许操作的表名白名单
-    allowed_tables: Vec<String>,
     // 服务启动时间
     pub started_at: String,
 }
@@ -52,12 +50,6 @@ impl CommonService {
         Self {
             db,
             config,
-            // 初始化允许操作的表名白名单
-            allowed_tables: vec![
-                "users".to_string(),
-                "resources".to_string(),
-                "encryption_keys".to_string(),
-            ],
             // 记录服务启动时间
             started_at: Utc::now().to_rfc3339(),
         }
@@ -65,7 +57,7 @@ impl CommonService {
 
     /// 验证表名是否允许操作
     fn validate_table_name(&self, table_name: &str) -> Result<(), CommonServiceError> {
-        if self.allowed_tables.contains(&table_name.to_string()) {
+        if self.config.allowed_tables.contains(&table_name.to_string()) {
             Ok(())
         } else {
             Err(CommonServiceError::InvalidTableName(table_name.to_string()))

@@ -1,4 +1,4 @@
-FROM rust:1.79.0-slim-buster AS builder
+FROM rust:1.91.1-slim AS builder
 
 # 设置工作目录
 WORKDIR /app

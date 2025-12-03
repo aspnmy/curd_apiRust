@@ -1,0 +1,34 @@
+-- 初始迁移文件 - 创建基础表结构
+
+-- 创建用户表
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+-- 创建资源表
+CREATE TABLE IF NOT EXISTS resources (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    resource_name VARCHAR(255) NOT NULL,
+    resource_type VARCHAR(50) NOT NULL,
+    resource_data JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+-- 创建加密密钥表
+CREATE TABLE IF NOT EXISTS encryption_keys (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    key_type VARCHAR(50) NOT NULL,
+    key_data VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT FALSE
+);

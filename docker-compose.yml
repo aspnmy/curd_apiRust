@@ -1,28 +1,54 @@
 version: '3.8'
 
 services:
-  # API服务
-  api:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    container_name: curd_api_rust
+  # 写入节点 - 负责处理写操作
+  api-write:
+    container_name: curd_api_rust_write
+    image: docker.io/aspnmy/curd_apirust:v0.1.0
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8000
       - HTTPS=false
-      - DATABASE_URL=postgres://crud_user:crud_password@localhost:5432/crud_db
-      - DATABASE_MAX_CONNECTIONS=10
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_MAX_CONNECTIONS=30
       - DATABASE_MIN_CONNECTIONS=2
-      - JWT_SECRET=your_secure_jwt_secret_key_here
+      - JWT_SECRET=${JWT_PWD}
       - JWT_EXPIRES_IN=3600
       - JWT_REFRESH_IN=86400
       - ENCRYPTION_ALGORITHM=aes-256-gcm
       - ENCRYPTION_KEY_LENGTH=32
       - ENCRYPTION_ITERATIONS=100000
-      - SERVICE_ROLE=mixed
-      - SERVICE_ID=crud-01
+      - SERVICE_ROLE=write
+      - SERVICE_ID=crud-write-01
       - ALLOWED_TABLES=users,resources,encryption_keys
+      # 写入节点需要运行数据库迁移
+      - RUN_MIGRATIONS=true
     ports:
-      - "8000:8000"
+      - "7981:8000"
+    restart: unless-stopped
+  
+  # 读取节点 - 负责处理读操作
+  api-read:
+    container_name: curd_api_rust_read
+    image: docker.io/aspnmy/curd_apirust:v0.1.0
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - HTTPS=false
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_MAX_CONNECTIONS=30
+      - DATABASE_MIN_CONNECTIONS=2
+      - JWT_SECRET=${JWT_PWD}
+      - JWT_EXPIRES_IN=3600
+      - JWT_REFRESH_IN=86400
+      - ENCRYPTION_ALGORITHM=aes-256-gcm
+      - ENCRYPTION_KEY_LENGTH=32
+      - ENCRYPTION_ITERATIONS=100000
+      - SERVICE_ROLE=read
+      - SERVICE_ID=crud-read-01
+      - ALLOWED_TABLES=users,resources,encryption_keys
+      # 读取节点不需要运行数据库迁移
+      - RUN_MIGRATIONS=false
+    ports:
+      - "7982:8000"
     restart: unless-stopped

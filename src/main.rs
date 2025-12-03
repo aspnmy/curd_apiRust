@@ -34,10 +34,15 @@ async fn main() {
         .await
         .expect("无法初始化数据库连接池");
     
-    // 运行数据库迁移
-    run_migrations(&db_pool)
-        .await
-        .expect("无法运行数据库迁移");
+    // 根据环境变量决定是否运行数据库迁移
+    if std::env::var("RUN_MIGRATIONS").unwrap_or("true".to_string()) == "true" {
+        // 运行数据库迁移
+        run_migrations(&db_pool)
+            .await
+            .expect("无法运行数据库迁移");
+    } else {
+        info!("跳过数据库迁移，RUN_MIGRATIONS环境变量设置为false");
+    }
     
     // 创建服务实例
     let common_service = CommonService::new(db_pool.clone(), config.clone());

@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # API服务
+  api:
+    build: .
+    container_name: crud_api
+    depends_on:
+      - db
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - HTTPS=false
+      - DATABASE_URL=postgres://crud_user:crud_password@db:5432/crud_db
+      - DATABASE_MAX_CONNECTIONS=10
+      - DATABASE_MIN_CONNECTIONS=2
+      - JWT_SECRET=your_secure_jwt_secret_key_here
+      - JWT_EXPIRES_IN=3600
+      - JWT_REFRESH_IN=86400
+      - ENCRYPTION_ALGORITHM=aes-256-gcm
+      - ENCRYPTION_KEY_LENGTH=32
+      - ENCRYPTION_ITERATIONS=100000
+      - SERVICE_ROLE=mixed
+      - SERVICE_ID=crud-01
+    ports:
+      - "8000:8000"
+    networks:
+      - crud_network
+    restart: unless-stopped
+  
+  # PostgreSQL数据库服务
+  db:
+    image: postgres:15-alpine
+    container_name: crud_db
+    environment:
+      - POSTGRES_USER=crud_user
+      - POSTGRES_PASSWORD=crud_password
+      - POSTGRES_DB=crud_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/migrations
+    networks:
+      - crud_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crud_user -d crud_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  crud_network:
+    driver: bridge
+
+volumes:
+  post

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 写入节点 - 负责处理写操作
   api-write:

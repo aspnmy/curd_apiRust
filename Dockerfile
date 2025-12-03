@@ -17,7 +17,7 @@ RUN cargo build --release
 FROM debian:buster-slim
 
 # 安装依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends --no-cache \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

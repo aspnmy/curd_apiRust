@@ -1,3 +1,7 @@
+# ${MIGRATION_STRATEGY} 数据库迁移策略
+# 可选值：repair（修复）、ignore（忽略）、strict（严格）
+# 默认值：strict
+# 只有写入节点才考虑数据库迁移策略
 services:
   # 写入节点 - 负责处理写操作和数据库迁移
   api-write:
@@ -29,6 +33,7 @@ services:
       - SERVICE_ID=crud-write-01             # 服务ID，用于标识不同节点
       - ALLOWED_TABLES=users,resources,encryption_keys  # 允许操作的表名白名单，逗号分隔
       - RUN_MIGRATIONS=true                  # 是否运行数据库迁移，写入节点需要设置为true
+      - MIGRATION_STRATEGY=${MIGRATION_STRATEGY}            # 生产环境使用忽略策略，迁移失败时继续运行
       
     ports:
       - "7981:8000"                         # 端口映射：主机端口:容器端口

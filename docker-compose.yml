@@ -2,7 +2,7 @@ services:
   # 写入节点 - 负责处理写操作和数据库迁移
   api-write:
     container_name: curd_api_rust_write
-    image: ghcr.io/aspnmy/curd_apiRust:latest
+    image: ghcr.io/aspnmy/curd_apirust:latest
     environment:
       # 服务器配置
       - SERVER_HOST=0.0.0.0                # 服务器监听地址，默认0.0.0.0
@@ -37,7 +37,7 @@ services:
   # 读取节点 - 负责处理读操作
   api-read:
     container_name: curd_api_rust_read
-    image: ghcr.io/aspnmy/curd_apiRust:latest
+    image: ghcr.io/aspnmy/curd_apirust:latest
     environment:
       # 服务器配置
       - SERVER_HOST=0.0.0.0                # 服务器监听地址，默认0.0.0.0

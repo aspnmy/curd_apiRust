@@ -1,7 +1,7 @@
-use std::env;
-use serde::Deserialize;
-use tracing::info;
 use anyhow::Result;
+use serde::Deserialize;
+use std::env;
+use tracing::info;
 
 /// 应用配置结构体
 #[derive(Debug, Deserialize, Clone)]
@@ -82,7 +82,7 @@ impl AppConfig {
     /// 从环境变量加载配置
     pub fn from_env() -> Result<Self> {
         info!("从环境变量加载配置");
-        
+
         // 从环境变量读取允许的表名，支持逗号分隔的字符串
         let allowed_tables = env::var("ALLOWED_TABLES")
             .unwrap_or("users,resources,encryption_keys".to_string())
@@ -90,27 +90,43 @@ impl AppConfig {
             .map(|table| table.trim().to_string())
             .filter(|table| !table.is_empty())
             .collect();
-        
+
         let config = Self {
             server: ServerConfig {
                 host: env::var("SERVER_HOST").unwrap_or("0.0.0.0".to_string()),
-                port: env::var("SERVER_PORT").unwrap_or("8000".to_string()).parse()?,
+                port: env::var("SERVER_PORT")
+                    .unwrap_or("8000".to_string())
+                    .parse()?,
                 https: env::var("HTTPS").unwrap_or("false".to_string()).parse()?,
             },
             database: DatabaseConfig {
-                url: env::var("DATABASE_URL").unwrap_or("postgres://user:password@localhost:5432/secret_gallery".to_string()),
-                max_connections: env::var("DATABASE_MAX_CONNECTIONS").unwrap_or("10".to_string()).parse()?,
-                min_connections: env::var("DATABASE_MIN_CONNECTIONS").unwrap_or("2".to_string()).parse()?,
+                url: env::var("DATABASE_URL").unwrap_or(
+                    "postgres://user:password@localhost:5432/secret_gallery".to_string(),
+                ),
+                max_connections: env::var("DATABASE_MAX_CONNECTIONS")
+                    .unwrap_or("10".to_string())
+                    .parse()?,
+                min_connections: env::var("DATABASE_MIN_CONNECTIONS")
+                    .unwrap_or("2".to_string())
+                    .parse()?,
             },
             jwt: JwtConfig {
                 secret: env::var("JWT_SECRET").unwrap_or("your_secret_key".to_string()),
-                expires_in: env::var("JWT_EXPIRES_IN").unwrap_or("3600".to_string()).parse()?,
-                refresh_in: env::var("JWT_REFRESH_IN").unwrap_or("86400".to_string()).parse()?,
+                expires_in: env::var("JWT_EXPIRES_IN")
+                    .unwrap_or("3600".to_string())
+                    .parse()?,
+                refresh_in: env::var("JWT_REFRESH_IN")
+                    .unwrap_or("86400".to_string())
+                    .parse()?,
             },
             encryption: EncryptionConfig {
                 algorithm: env::var("ENCRYPTION_ALGORITHM").unwrap_or("aes-256-gcm".to_string()),
-                key_length: env::var("ENCRYPTION_KEY_LENGTH").unwrap_or("32".to_string()).parse()?,
-                iterations: env::var("ENCRYPTION_ITERATIONS").unwrap_or("100000".to_string()).parse()?,
+                key_length: env::var("ENCRYPTION_KEY_LENGTH")
+                    .unwrap_or("32".to_string())
+                    .parse()?,
+                iterations: env::var("ENCRYPTION_ITERATIONS")
+                    .unwrap_or("100000".to_string())
+                    .parse()?,
             },
             service: ServiceRoleConfig {
                 role: env::var("SERVICE_ROLE").unwrap_or("mixed".to_string()),
@@ -118,30 +134,30 @@ impl AppConfig {
             },
             allowed_tables,
         };
-        
+
         Ok(config)
     }
-    
+
     /// 验证配置
     pub fn validate(&self) -> Result<()> {
         info!("验证配置");
-        
+
         // 验证服务角色
         let valid_roles = vec!["read", "write", "mixed"];
         if !valid_roles.contains(&self.service.role.as_str()) {
             anyhow::bail!("无效的服务角色: {}", self.service.role);
         }
-        
+
         // 验证JWT密钥长度
         if self.jwt.secret.len() < 16 {
             anyhow::bail!("JWT密钥长度至少为16个字符");
         }
-        
+
         // 验证数据库URL
         if self.database.url.is_empty() {
             anyhow::bail!("数据库URL不能为空");
         }
-        
+
         info!("配置验证通过");
         Ok(())
     }

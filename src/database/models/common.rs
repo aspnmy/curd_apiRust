@@ -17,6 +17,8 @@ pub struct CommonRequest {
     pub soft_delete_config: Option<SoftDeleteConfig>,
     /// 加密配置，用于媒体数据加密
     pub encryption_config: Option<EncryptionConfig>,
+    /// 是否是审计查询，true表示显示所有数据，包括已删除的数据
+    pub audit: Option<bool>,
 }
 
 /// 条件结构体

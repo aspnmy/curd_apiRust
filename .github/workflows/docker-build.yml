@@ -5,10 +5,14 @@ on:
     branches: [ main, dev_rust ]
     paths-ignore:
       - 'docker-compose.yml'
+      - '*.md'
+      - '**/*.md'
   pull_request:
     branches: [ main, dev_rust ]
     paths-ignore:
       - 'docker-compose.yml'
+      - '*.md'
+      - '**/*.md'
 
 permissions:
   contents: read

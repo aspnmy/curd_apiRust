@@ -1,13 +1,13 @@
-use sqlx::{Postgres, Row, Column, query};
-use serde_json::{Value as JsonValue};
-use tracing::{info, error};
-use thiserror::Error;
 use anyhow::Result;
 use chrono::Utc;
+use serde_json::Value as JsonValue;
+use sqlx::{Column, Postgres, Row, query};
+use thiserror::Error;
+use tracing::{error, info};
 
-use crate::database::models::common::{CommonRequest, CommonResponse, Condition};
-use crate::database::DatabasePool;
 use crate::config::AppConfig;
+use crate::database::DatabasePool;
+use crate::database::models::common::{CommonRequest, CommonResponse, Condition};
 
 /// 通用服务错误类型
 #[derive(Error, Debug)]
@@ -67,30 +67,35 @@ impl CommonService {
     /// 验证服务角色是否允许此操作
     fn validate_service_role(&self, operation: &str) -> Result<(), CommonServiceError> {
         let role = &self.config.service.role;
-        
+
         // 根据操作类型验证服务角色
         match operation {
             "add" | "update" | "isdel" => {
                 if role == "read" {
-                    return Err(CommonServiceError::ServiceRoleError("只读角色不允许写操作".to_string()));
+                    return Err(CommonServiceError::ServiceRoleError(
+                        "只读角色不允许写操作".to_string(),
+                    ));
                 }
-            },
+            }
             "check" => {
                 // 所有角色都允许读操作
-            },
+            }
             _ => {
                 return Err(CommonServiceError::InvalidOperation(operation.to_string()));
             }
         }
-        
+
         Ok(())
     }
 
     /// 执行通用操作
-    pub async fn execute(&self, request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
+    pub async fn execute(
+        &self,
+        request: CommonRequest,
+    ) -> Result<CommonResponse, CommonServiceError> {
         // 验证服务角色
         self.validate_service_role(&request.operation)?;
-        
+
         // 验证表名
         self.validate_table_name(&request.table_name)?;
 
@@ -105,48 +110,24 @@ impl CommonService {
 
     /// 添加记录
     async fn add(&self, request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
-        info!("执行添加操作，表名: {}, 数据: {:?}", request.table_name, request.data);
+        info!(
+            "执行添加操作，逻辑表名: {}, 数据: {:?}",
+            request.table_name, request.data
+        );
 
-        // 构建SQL语句
-        let mut columns = Vec::new();
-        let mut values = Vec::new();
-        let mut placeholders = Vec::new();
-        let mut param_index = 1;
-
-        // 遍历数据，构建列名、值和占位符
-        if let JsonValue::Object(data_obj) = request.data {
-            for (key, value) in data_obj {
-                columns.push(key);
-                values.push(value);
-                placeholders.push(format!("${}", param_index));
-                param_index += 1;
-            }
-        } else {
-            return Err(CommonServiceError::InvalidCondition("数据必须是对象".to_string()));
-        }
-
-        // 生成SQL语句
-        let columns_str = columns.join(", ");
-        let placeholders_str = placeholders.join(", ");
+        // 生成SQL语句 - 使用通用表结构
         let sql = format!(
-            "INSERT INTO {} ({}) VALUES ({}) RETURNING *",
-            request.table_name,
-            columns_str,
-            placeholders_str
+            "INSERT INTO common_data (table_name, datainfos) VALUES ($1, $2) RETURNING *"
         );
 
         info!("生成的SQL语句: {}", sql);
 
         // 执行SQL语句
-        let mut query_builder = query(&sql);
-        
-        // 绑定参数
-        for value in values {
-            query_builder = self.bind_value(query_builder, value)?;
-        }
-
-        // 执行查询
-        let row = query_builder.fetch_one(&self.db).await?;
+        let row = sqlx::query(&sql)
+            .bind(&request.table_name)
+            .bind(&request.data)
+            .fetch_one(&self.db)
+            .await?;
         let affected_rows = 1;
 
         // 转换为JSON响应
@@ -166,7 +147,10 @@ impl CommonService {
 
     /// 查询记录
     async fn check(&self, request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
-        info!("执行查询操作，表名: {}, 条件: {:?}", request.table_name, request.where_conditions);
+        info!(
+            "执行查询操作，逻辑表名: {}, 条件: {:?}",
+            request.table_name, request.where_conditions
+        );
 
         // 构建查询字段
         let fields_str = if let Some(fields) = &request.fields {
@@ -176,21 +160,33 @@ impl CommonService {
         };
 
         // 构建WHERE子句
-        let (where_clause, where_params) = self.build_where_clause(&request.where_conditions)?;
+        let (mut where_clause, mut where_params) = self.build_where_clause(&request.where_conditions)?;
+        
+        // 添加逻辑表名条件
+        if where_clause.is_empty() {
+            where_clause = "WHERE table_name = $1".to_string();
+        } else {
+            where_clause = format!("{} AND table_name = ${}", where_clause, where_params.len() + 1);
+        }
+        where_params.push(JsonValue::String(request.table_name.clone()));
+        
+        // 添加软删除条件，非审计查询只显示未删除的数据
+        if request.audit.unwrap_or(false) == false {
+            where_clause = format!("{} AND is_del = ${}", where_clause, where_params.len() + 1);
+            where_params.push(JsonValue::Bool(false));
+        }
 
-        // 生成SQL语句
+        // 生成SQL语句 - 使用通用表结构
         let sql = format!(
-            "SELECT {} FROM {} {}",
-            fields_str,
-            request.table_name,
-            where_clause
+            "SELECT {} FROM common_data {}",
+            fields_str, where_clause
         );
 
         info!("生成的SQL语句: {}", sql);
 
         // 执行SQL语句
         let mut query_builder = query(&sql);
-        
+
         // 绑定参数
         for value in where_params {
             query_builder = self.bind_value(query_builder, value)?;
@@ -221,34 +217,25 @@ impl CommonService {
 
     /// 更新记录
     async fn update(&self, request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
-        info!("执行更新操作，表名: {}, 数据: {:?}, 条件: {:?}", 
-              request.table_name, request.data, request.where_conditions);
-
-        // 构建SET子句
-        let mut set_clauses = Vec::new();
-        let mut set_params = Vec::new();
-        let mut param_index = 1;
-
-        if let JsonValue::Object(data_obj) = request.data {
-            for (key, value) in data_obj {
-                set_clauses.push(format!("{} = ${}", key, param_index));
-                set_params.push(value);
-                param_index += 1;
-            }
-        } else {
-            return Err(CommonServiceError::InvalidCondition("数据必须是对象".to_string()));
-        }
-
-        let set_clause = set_clauses.join(", ");
+        info!(
+            "执行更新操作，逻辑表名: {}, 数据: {:?}, 条件: {:?}",
+            request.table_name, request.data, request.where_conditions
+        );
 
         // 构建WHERE子句
-        let (where_clause, where_params) = self.build_where_clause(&request.where_conditions)?;
+        let (mut where_clause, mut where_params) = self.build_where_clause(&request.where_conditions)?;
+        
+        // 添加逻辑表名条件
+        if where_clause.is_empty() {
+            where_clause = "WHERE table_name = $1".to_string();
+        } else {
+            where_clause = format!("{} AND table_name = ${}", where_clause, where_params.len() + 1);
+        }
+        where_params.push(JsonValue::String(request.table_name.clone()));
 
-        // 生成SQL语句
+        // 生成SQL语句 - 使用通用表结构
         let sql = format!(
-            "UPDATE {} SET {} {} RETURNING *",
-            request.table_name,
-            set_clause,
+            "UPDATE common_data SET datainfos = $1 {} RETURNING *",
             where_clause
         );
 
@@ -256,11 +243,9 @@ impl CommonService {
 
         // 执行SQL语句
         let mut query_builder = query(&sql);
-        
-        // 绑定SET参数
-        for value in set_params {
-            query_builder = self.bind_value(query_builder, value)?;
-        }
+
+        // 绑定更新数据参数
+        query_builder = query_builder.bind(&request.data);
 
         // 绑定WHERE参数
         for value in where_params {
@@ -296,32 +281,48 @@ impl CommonService {
 
     /// 软删除记录
     async fn isdel(&self, request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
-        info!("执行软删除操作，表名: {}, 条件: {:?}, 配置: {:?}", 
-              request.table_name, request.where_conditions, request.soft_delete_config);
+        info!(
+            "执行软删除操作，逻辑表名: {}, 条件: {:?}, 配置: {:?}",
+            request.table_name, request.where_conditions, request.soft_delete_config
+        );
 
         // 获取软删除配置
-        let soft_delete_config = request.soft_delete_config.as_ref()
-            .ok_or(CommonServiceError::InvalidCondition("软删除配置不能为空".to_string()))?;
+        let soft_delete_config = 
+            request
+                .soft_delete_config
+                .as_ref()
+                .ok_or(CommonServiceError::InvalidCondition(
+                    "软删除配置不能为空".to_string(),
+                ))?;
 
         // 构建WHERE子句
-        let (where_clause, where_params) = self.build_where_clause(&request.where_conditions)?;
+        let (mut where_clause, mut where_params) = self.build_where_clause(&request.where_conditions)?;
+        
+        // 添加逻辑表名条件
+        if where_clause.is_empty() {
+            where_clause = "WHERE table_name = $1".to_string();
+        } else {
+            where_clause = format!("{} AND table_name = ${}", where_clause, where_params.len() + 1);
+        }
+        where_params.push(JsonValue::String(request.table_name.clone()));
 
-        // 生成SQL语句（使用参数化查询）
+        // 生成SQL语句（使用参数化查询）- 使用通用表结构
         let sql = format!(
-            "UPDATE {} SET {} = $1 {} RETURNING *",
-            request.table_name,
-            soft_delete_config.field,
-            where_clause
+            "UPDATE common_data SET {} = $1 {} RETURNING *",
+            soft_delete_config.field, where_clause
         );
 
         info!("生成的SQL语句: {}", sql);
 
         // 执行SQL语句
         let mut query_builder = query(&sql);
-        
+
         // 绑定软删除值
-        query_builder = self.bind_value(query_builder, serde_json::Value::String(soft_delete_config.value.clone()))?;
-        
+        query_builder = self.bind_value(
+            query_builder,
+            serde_json::Value::String(soft_delete_config.value.clone()),
+        )?;
+
         // 绑定WHERE参数
         for value in where_params {
             query_builder = self.bind_value(query_builder, value)?;
@@ -344,7 +345,10 @@ impl CommonService {
     }
 
     /// 构建WHERE子句
-    fn build_where_clause(&self, conditions: &Option<Vec<Condition>>) -> Result<(String, Vec<JsonValue>), CommonServiceError> {
+    fn build_where_clause(
+        &self,
+        conditions: &Option<Vec<Condition>>,
+    ) -> Result<(String, Vec<JsonValue>), CommonServiceError> {
         let mut where_clause = String::new();
         let mut where_params = Vec::new();
         let mut param_index = 1;
@@ -358,7 +362,17 @@ impl CommonService {
                     // 验证字段名
                     self.validate_field_name(&cond.field)?;
 
-                    condition_strings.push(format!("{} {} ${}", cond.field, cond.operator, param_index));
+                    // 对于JSONB字段，使用 ->> 操作符进行查询
+                    let field_expr = if cond.field == "id" || cond.field == "table_name" || cond.field == "is_rols" || cond.field == "is_del" || cond.field == "is_date" || cond.field == "created_at" || cond.field == "updated_at" {
+                        // 对于普通字段，直接使用字段名
+                        cond.field.to_string()
+                    } else {
+                        // 对于JSONB中的字段，使用 ->> 操作符
+                        format!("datainfos ->> '{}'", cond.field)
+                    };
+
+                    condition_strings
+                        .push(format!("{} {} ${}", field_expr, cond.operator, param_index));
                     where_params.push(cond.value.clone());
                     param_index += 1;
                 }
@@ -381,7 +395,12 @@ impl CommonService {
     }
 
     /// 绑定值到SQL查询
-    fn bind_value<'q>(&self, mut query_builder: sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>, value: JsonValue) -> Result<sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>, CommonServiceError> {
+    fn bind_value<'q>(
+        &self,
+        mut query_builder: sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>,
+        value: JsonValue,
+    ) -> Result<sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>, CommonServiceError>
+    {
         query_builder = match value {
             JsonValue::Null => query_builder.bind(None::<String>),
             JsonValue::Bool(b) => query_builder.bind(b),
@@ -391,9 +410,11 @@ impl CommonService {
                 } else if let Some(f) = n.as_f64() {
                     query_builder.bind(f)
                 } else {
-                    return Err(CommonServiceError::InvalidCondition("无效的数值类型".to_string()));
+                    return Err(CommonServiceError::InvalidCondition(
+                        "无效的数值类型".to_string(),
+                    ));
                 }
-            },
+            }
             JsonValue::String(s) => query_builder.bind(s),
             JsonValue::Array(_) => query_builder.bind(value.to_string()),
             JsonValue::Object(_) => query_builder.bind(value.to_string()),
@@ -402,14 +423,17 @@ impl CommonService {
     }
 
     /// 将数据库行转换为JSON
-    async fn row_to_json(&self, row: &sqlx::postgres::PgRow) -> Result<JsonValue, CommonServiceError> {
+    async fn row_to_json(
+        &self,
+        row: &sqlx::postgres::PgRow,
+    ) -> Result<JsonValue, CommonServiceError> {
         let columns = row.columns();
         let mut result = JsonValue::Object(serde_json::Map::new());
 
         for column in columns {
             // 使用Column trait的name()方法获取列名
             let column_name = column.name();
-            
+
             // 使用row.try_get方法获取值，支持泛型转换
             let json_value = match row.try_get::<serde_json::Value, _>(column_name) {
                 Ok(val) => val,
@@ -419,26 +443,29 @@ impl CommonService {
                         Ok(s) => JsonValue::String(s),
                         Err(_) => JsonValue::Null,
                     }
-                },
+                }
             };
-            
-            result.as_object_mut().unwrap().insert(column_name.to_string(), json_value);
+
+            result
+                .as_object_mut()
+                .unwrap()
+                .insert(column_name.to_string(), json_value);
         }
 
         Ok(result)
     }
 
     /// 获取服务健康状态
-    pub async fn get_health(&self) -> Result<crate::database::models::common::HealthResponse, CommonServiceError> {
+    pub async fn get_health(
+        &self,
+    ) -> Result<crate::database::models::common::HealthResponse, CommonServiceError> {
         // 检查数据库连接
-        let database_status = match sqlx::query("SELECT 1")
-            .fetch_one(&self.db)
-            .await {
+        let database_status = match sqlx::query("SELECT 1").fetch_one(&self.db).await {
             Ok(_) => "healthy".to_string(),
             Err(e) => {
                 error!("数据库连接失败: {:?}", e);
                 "unhealthy".to_string()
-            },
+            }
         };
 
         Ok(crate::database::models::common::HealthResponse {

@@ -6,15 +6,18 @@
 
 ### 核心功能
 
-- **通用 CRUD 操作**：支持对任意表的增删改查操作
+- **通用 CRUD 操作**：支持对任意数据的增删改查操作
 - **动态 SQL 生成**：根据请求参数动态生成 SQL 查询
 - **参数化查询**：防止 SQL 注入，提高安全性
 - **服务角色支持**：支持 read/write/mixed 三种角色，实现读写分离
 - **批量处理**：支持批量增删改查操作
-- **软删除**：支持配置软删除字段
+- **软删除**：内置逻辑删除功能，通过 is_del 字段控制
 - **条件查询**：支持复杂的条件查询
-- **JSONB 存储**：支持 PostgreSQL JSONB 类型存储
+- **JSONB 存储**：使用 PostgreSQL JSONB 类型存储通用数据
 - **多节点部署**：支持多个服务节点，实现高可用和负载均衡
+- **通用表结构**：单一表结构支持所有数据类型，无需修改表结构
+- **灵活权限控制**：支持 users/admin 等多种权限标识
+- **自动时间更新**：自动更新 is_date 字段，记录最后更新时间
 
 ### 技术栈
 
@@ -44,7 +47,8 @@ docker run -d \
   -e DATABASE_URL=postgres://user:password@postgres:5432/secret_gallery \
   -e ALLOWED_TABLES=users,resources,encryption_keys \
   -e RUN_MIGRATIONS=true \
-  curd_api_rust
+  -e MIGRATION_STRATEGY=ignore \
+  ghcr.io/aspnmy/curd_apirust:latest
 
 # 运行容器 - 读取节点
 docker run -d \
@@ -55,7 +59,7 @@ docker run -d \
   -e DATABASE_URL=postgres://user:password@postgres:5432/secret_gallery \
   -e ALLOWED_TABLES=users,resources \
   -e RUN_MIGRATIONS=false \
-  curd_api_rust
+  ghcr.io/aspnmy/curd_apirust:latest
 ```
 
 ### Docker Compose 部署
@@ -67,24 +71,35 @@ services:
   # 写入节点 - 负责处理写操作和数据库迁移
   api-write:
     container_name: curd_api_rust_write
-    image: curd_api_rust:latest
+    image: ghcr.io/aspnmy/curd_apirust:latest
     environment:
+      # 服务器配置
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8000
       - HTTPS=false
+      
+      # 数据库配置
       - DATABASE_URL=${DATABASE_URL}
       - DATABASE_MAX_CONNECTIONS=30
       - DATABASE_MIN_CONNECTIONS=2
+      
+      # JWT配置
       - JWT_SECRET=${JWT_PWD}
       - JWT_EXPIRES_IN=3600
       - JWT_REFRESH_IN=86400
+      
+      # 加密配置
       - ENCRYPTION_ALGORITHM=aes-256-gcm
       - ENCRYPTION_KEY_LENGTH=32
       - ENCRYPTION_ITERATIONS=100000
+      
+      # 服务配置
       - SERVICE_ROLE=write
       - SERVICE_ID=crud-write-01
       - ALLOWED_TABLES=users,resources,encryption_keys
       - RUN_MIGRATIONS=true
+      - MIGRATION_STRATEGY=${MIGRATION_STRATEGY}
+      
     ports:
       - "7981:8000"
     restart: unless-stopped
@@ -92,24 +107,34 @@ services:
   # 读取节点 - 负责处理读操作
   api-read:
     container_name: curd_api_rust_read
-    image: curd_api_rust:latest
+    image: ghcr.io/aspnmy/curd_apirust:latest
     environment:
+      # 服务器配置
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8000
       - HTTPS=false
+      
+      # 数据库配置
       - DATABASE_URL=${DATABASE_URL}
       - DATABASE_MAX_CONNECTIONS=30
       - DATABASE_MIN_CONNECTIONS=2
+      
+      # JWT配置
       - JWT_SECRET=${JWT_PWD}
       - JWT_EXPIRES_IN=3600
       - JWT_REFRESH_IN=86400
+      
+      # 加密配置
       - ENCRYPTION_ALGORITHM=aes-256-gcm
       - ENCRYPTION_KEY_LENGTH=32
       - ENCRYPTION_ITERATIONS=100000
+      
+      # 服务配置
       - SERVICE_ROLE=read
       - SERVICE_ID=crud-read-01
       - ALLOWED_TABLES=users,resources,encryption_keys
       - RUN_MIGRATIONS=false
+      
     ports:
       - "7982:8000"
     restart: unless-stopped
@@ -122,6 +147,7 @@ services:
 cat > .env << EOF
 DATABASE_URL=postgres://user:password@postgres:5432/secret_gallery
 JWT_PWD=your_secure_jwt_secret_key_here
+MIGRATION_STRATEGY=ignore
 EOF
 
 # 启动服务
@@ -148,8 +174,9 @@ docker-compose up -d
 | `ENCRYPTION_ITERATIONS` | 迭代次数 | `100000` |
 | `SERVICE_ROLE` | 服务角色（read/write/mixed） | `mixed` |
 | `SERVICE_ID` | 服务 ID | `crud-01` |
-| `ALLOWED_TABLES` | 允许操作的表名白名单，逗号分隔 | `users,resources,encryption_keys` |
+| `ALLOWED_TABLES` | 允许操作的逻辑表名白名单，逗号分隔 | `users,resources,encryption_keys` |
 | `RUN_MIGRATIONS` | 是否运行数据库迁移 | `true` |
+| `MIGRATION_STRATEGY` | 数据库迁移策略，可选值：repair（修复）、ignore（忽略）、strict（严格） | `strict` |
 
 ## API 端点
 
@@ -168,7 +195,7 @@ GET /health
 ```json
 {
   "operation": "add", // add, check, update, isdel
-  "table_name": "users", // 表名
+  "table_name": "users", // 逻辑表名
   "data": { /* 操作数据 */ }, // 操作数据，用于 add 和 update
   "where_conditions": [ /* 查询条件 */ ], // 查询条件，用于 check, update 和 isdel
   "fields": [ /* 查询字段 */ ], // 查询字段，用于 check
@@ -216,6 +243,105 @@ POST /api/isdel
 
 这些简化端点的请求体与通用请求格式相同，但操作类型由路径决定。
 
+## 通用表结构
+
+### 表结构设计
+
+```sql
+CREATE TABLE common_data (
+    id SERIAL PRIMARY KEY,                      -- 主键ID
+    table_name VARCHAR(255) NOT NULL,           -- 逻辑表名，用于区分不同类型的数据
+    datainfos JSONB NOT NULL DEFAULT '{}'::jsonb, -- 通用JSON数据存储
+    is_rols VARCHAR(50) DEFAULT 'users',        -- 权限标识，如users、admin等
+    is_del BOOLEAN DEFAULT FALSE,               -- 逻辑删除标识，true表示已删除
+    is_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- 更新时间
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- 创建时间
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP -- 实际更新时间
+);
+```
+
+### 字段说明
+
+- **id**：主键ID，自动递增
+- **table_name**：逻辑表名，用于区分不同类型的数据
+- **datainfos**：通用JSON数据存储，支持任意键值对
+- **is_rols**：权限标识，如users、admin等
+- **is_del**：逻辑删除标识，true表示已删除
+- **is_date**：更新时间，自动更新
+- **created_at**：创建时间，仅在创建时设置
+- **updated_at**：实际更新时间，自动更新
+
+### 使用示例
+
+#### 添加记录
+
+```json
+{
+  "operation": "add",
+  "table_name": "users",
+  "data": {
+    "username": "test_user",
+    "email": "test@example.com",
+    "password": "hashed_password"
+  }
+}
+```
+
+#### 查询记录
+
+```json
+{
+  "operation": "check",
+  "table_name": "users",
+  "where_conditions": [
+    {
+      "field": "username",
+      "operator": "=",
+      "value": "test_user"
+    }
+  ]
+}
+```
+
+#### 更新记录
+
+```json
+{
+  "operation": "update",
+  "table_name": "users",
+  "data": {
+    "email": "new_email@example.com"
+  },
+  "where_conditions": [
+    {
+      "field": "username",
+      "operator": "=",
+      "value": "test_user"
+    }
+  ]
+}
+```
+
+#### 软删除记录
+
+```json
+{
+  "operation": "isdel",
+  "table_name": "users",
+  "soft_delete_config": {
+    "field": "is_del",
+    "value": "true"
+  },
+  "where_conditions": [
+    {
+      "field": "username",
+      "operator": "=",
+      "value": "test_user"
+    }
+  ]
+}
+```
+
 ## 服务角色
 
 ### Read 角色
@@ -237,6 +363,34 @@ POST /api/isdel
 - 允许执行所有 CRUD 操作
 - 适用于开发环境或小型部署
 - 执行数据库迁移
+
+## 多节点部署
+
+### 部署架构
+
+1. **写入节点**：
+   - 建议部署 1-2 个实例
+   - 设置 `SERVICE_ROLE=write`
+   - 设置 `RUN_MIGRATIONS=true`（仅一个节点）
+   - 设置 `MIGRATION_STRATEGY=ignore`（生产环境）或 `repair`（首次部署）
+   - 负责处理写操作和数据库迁移
+
+2. **读取节点**：
+   - 建议部署多个实例，根据负载情况调整
+   - 设置 `SERVICE_ROLE=read`
+   - 设置 `RUN_MIGRATIONS=false`
+   - 负责处理读操作
+   - 可通过负载均衡器进行负载分配
+
+### 负载均衡
+
+- **Nginx**：配置反向代理，将请求分发到不同节点
+- **HAProxy**：高性能负载均衡器，支持 TCP 和 HTTP 协议
+- **Kubernetes**：使用 Service 和 Ingress 进行负载均衡
+
+### 健康检查
+
+所有节点提供 `/health` 端点，用于健康检查。
 
 ## 开发指南
 
@@ -288,36 +442,6 @@ cargo fmt
 # 运行 clippy
 cargo clippy
 ```
-
-## 多节点部署最佳实践
-
-### 部署架构
-
-1. **写入节点**：
-   - 建议部署 1-2 个实例
-   - 设置 `SERVICE_ROLE=write`
-   - 设置 `RUN_MIGRATIONS=true`（仅一个节点）
-   - 负责处理写操作和数据库迁移
-
-2. **读取节点**：
-   - 建议部署多个实例，根据负载情况调整
-   - 设置 `SERVICE_ROLE=read`
-   - 设置 `RUN_MIGRATIONS=false`
-   - 负责处理读操作
-   - 可通过负载均衡器进行负载分配
-
-### 负载均衡
-
-- **Nginx**：配置反向代理，将请求分发到不同节点
-- **HAProxy**：高性能负载均衡器，支持 TCP 和 HTTP 协议
-- **Kubernetes**：使用 Service 和 Ingress 进行负载均衡
-
-### 监控和日志
-
-- **Prometheus**：监控服务指标
-- **Grafana**：可视化监控数据
-- **Loki**：收集和查询日志
-- **Jaeger**：分布式追踪
 
 ## 贡献指南
 

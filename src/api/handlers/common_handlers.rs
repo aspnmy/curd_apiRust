@@ -1,8 +1,10 @@
-use axum::{http::StatusCode, Json, Extension};
+use axum::{Extension, Json, http::StatusCode};
 use std::sync::Arc;
 
+use crate::database::models::common::{
+    BatchRequest, BatchResponse, CommonRequest, CommonResponse, HealthResponse,
+};
 use crate::service::common::CommonService;
-use crate::database::models::common::{CommonRequest, CommonResponse, BatchRequest, BatchResponse, HealthResponse};
 
 /// 处理通用操作请求
 pub async fn handle_common_request(
@@ -42,7 +44,7 @@ pub async fn handle_batch_request(
             Ok(response) => {
                 results.push(response);
                 success_count += 1;
-            },
+            }
             Err(e) => {
                 tracing::error!("处理批量请求中的单个请求失败: {:?}", e);
                 let error_response = CommonResponse {

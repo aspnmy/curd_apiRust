@@ -1,52 +1,70 @@
 services:
-  # 写入节点 - 负责处理写操作
+  # 写入节点 - 负责处理写操作和数据库迁移
   api-write:
     container_name: curd_api_rust_write
     image: docker.io/aspnmy/curd_apirust:v0.1.0
     environment:
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=8000
-      - HTTPS=false
-      - DATABASE_URL=${DATABASE_URL}
-      - DATABASE_MAX_CONNECTIONS=30
-      - DATABASE_MIN_CONNECTIONS=2
-      - JWT_SECRET=${JWT_PWD}
-      - JWT_EXPIRES_IN=3600
-      - JWT_REFRESH_IN=86400
-      - ENCRYPTION_ALGORITHM=aes-256-gcm
-      - ENCRYPTION_KEY_LENGTH=32
-      - ENCRYPTION_ITERATIONS=100000
-      - SERVICE_ROLE=write
-      - SERVICE_ID=crud-write-01
-      - ALLOWED_TABLES=users,resources,encryption_keys
-      # 写入节点需要运行数据库迁移
-      - RUN_MIGRATIONS=true
+      # 服务器配置
+      - SERVER_HOST=0.0.0.0                # 服务器监听地址，默认0.0.0.0
+      - SERVER_PORT=8000                     # 服务器监听端口，默认8000
+      - HTTPS=false                          # 是否启用HTTPS，默认false
+      
+      # 数据库配置
+      - DATABASE_URL=${DATABASE_URL}         # 数据库连接URL，从环境变量获取
+      - DATABASE_MAX_CONNECTIONS=30           # 数据库最大连接数，默认10
+      - DATABASE_MIN_CONNECTIONS=2           # 数据库最小连接数，默认2
+      
+      # JWT配置
+      - JWT_SECRET=${JWT_PWD}               # JWT签名密钥，从环境变量获取
+      - JWT_EXPIRES_IN=3600                  # JWT过期时间（秒），默认3600
+      - JWT_REFRESH_IN=86400                 # JWT刷新时间（秒），默认86400
+      
+      # 加密配置
+      - ENCRYPTION_ALGORITHM=aes-256-gcm     # 加密算法，默认aes-256-gcm
+      - ENCRYPTION_KEY_LENGTH=32             # 密钥长度，默认32
+      - ENCRYPTION_ITERATIONS=100000         # 迭代次数，默认100000
+      
+      # 服务配置
+      - SERVICE_ROLE=write                   # 服务角色：read/write/mixed，此处为写入节点
+      - SERVICE_ID=crud-write-01             # 服务ID，用于标识不同节点
+      - ALLOWED_TABLES=users,resources,encryption_keys  # 允许操作的表名白名单，逗号分隔
+      - RUN_MIGRATIONS=true                  # 是否运行数据库迁移，写入节点需要设置为true
+      
     ports:
-      - "7981:8000"
-    restart: unless-stopped
+      - "7981:8000"                         # 端口映射：主机端口:容器端口
+    restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
   
   # 读取节点 - 负责处理读操作
   api-read:
     container_name: curd_api_rust_read
     image: docker.io/aspnmy/curd_apirust:v0.1.0
     environment:
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=8000
-      - HTTPS=false
-      - DATABASE_URL=${DATABASE_URL}
-      - DATABASE_MAX_CONNECTIONS=30
-      - DATABASE_MIN_CONNECTIONS=2
-      - JWT_SECRET=${JWT_PWD}
-      - JWT_EXPIRES_IN=3600
-      - JWT_REFRESH_IN=86400
-      - ENCRYPTION_ALGORITHM=aes-256-gcm
-      - ENCRYPTION_KEY_LENGTH=32
-      - ENCRYPTION_ITERATIONS=100000
-      - SERVICE_ROLE=read
-      - SERVICE_ID=crud-read-01
-      - ALLOWED_TABLES=users,resources,encryption_keys
-      # 读取节点不需要运行数据库迁移
-      - RUN_MIGRATIONS=false
+      # 服务器配置
+      - SERVER_HOST=0.0.0.0                # 服务器监听地址，默认0.0.0.0
+      - SERVER_PORT=8000                     # 服务器监听端口，默认8000
+      - HTTPS=false                          # 是否启用HTTPS，默认false
+      
+      # 数据库配置
+      - DATABASE_URL=${DATABASE_URL}         # 数据库连接URL，从环境变量获取
+      - DATABASE_MAX_CONNECTIONS=30           # 数据库最大连接数，默认10
+      - DATABASE_MIN_CONNECTIONS=2           # 数据库最小连接数，默认2
+      
+      # JWT配置
+      - JWT_SECRET=${JWT_PWD}               # JWT签名密钥，从环境变量获取
+      - JWT_EXPIRES_IN=3600                  # JWT过期时间（秒），默认3600
+      - JWT_REFRESH_IN=86400                 # JWT刷新时间（秒），默认86400
+      
+      # 加密配置
+      - ENCRYPTION_ALGORITHM=aes-256-gcm     # 加密算法，默认aes-256-gcm
+      - ENCRYPTION_KEY_LENGTH=32             # 密钥长度，默认32
+      - ENCRYPTION_ITERATIONS=100000         # 迭代次数，默认100000
+      
+      # 服务配置
+      - SERVICE_ROLE=read                    # 服务角色：read/write/mixed，此处为读取节点
+      - SERVICE_ID=crud-read-01              # 服务ID，用于标识不同节点
+      - ALLOWED_TABLES=users,resources,encryption_keys  # 允许操作的表名白名单，逗号分隔
+      - RUN_MIGRATIONS=false                 # 是否运行数据库迁移，读取节点设置为false
+      
     ports:
-      - "7982:8000"
-    restart: unless-stopped
+      - "7982:8000"                         # 端口映射：主机端口:容器端口
+    restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启

@@ -13,6 +13,7 @@ pub struct AppConfig {
     /// JWT配置
     pub jwt: JwtConfig,
     /// 加密配置
+    #[allow(dead_code)]
     pub encryption: EncryptionConfig,
     /// 服务角色配置
     pub service: ServiceRoleConfig,
@@ -26,6 +27,7 @@ pub struct ServerConfig {
     /// 服务器端口
     pub port: u16,
     /// 是否启用HTTPS
+    #[allow(dead_code)]
     pub https: bool,
 }
 
@@ -46,13 +48,16 @@ pub struct JwtConfig {
     /// JWT密钥
     pub secret: String,
     /// JWT过期时间（秒）
+    #[allow(dead_code)]
     pub expires_in: i64,
     /// JWT刷新时间（秒）
+    #[allow(dead_code)]
     pub refresh_in: i64,
 }
 
 /// 加密配置
 #[derive(Debug, Deserialize, Clone)]
+#[allow(dead_code)]
 pub struct EncryptionConfig {
     /// 加密算法
     pub algorithm: String,

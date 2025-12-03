@@ -14,10 +14,10 @@ COPY migrations ./migrations
 RUN cargo build --release
 
 # 创建运行时镜像
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 # 安装依赖
-RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends --no-cache \
+RUN apt-get update --allow-releaseinfo-change && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

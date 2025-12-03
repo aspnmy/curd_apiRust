@@ -1,14 +1,12 @@
-use sqlx::{PgPool, Postgres, Row, Column, query, query_as};
-use serde::{Deserialize, Serialize};
+use sqlx::{Postgres, Row, Column, query};
 use serde_json::{Value as JsonValue};
 use tracing::{info, error};
 use thiserror::Error;
-use std::sync::Arc;
 use anyhow::Result;
 use chrono::Utc;
 
 use crate::database::models::common::{CommonRequest, CommonResponse, Condition};
-use crate::database::{DatabasePool, DatabaseError};
+use crate::database::DatabasePool;
 use crate::config::AppConfig;
 
 /// 通用服务错误类型
@@ -29,16 +27,11 @@ pub enum CommonServiceError {
     /// 无效的条件
     #[error("无效的条件: {0}")]
     InvalidCondition(String),
-    /// 无效的加密配置
-    #[error("无效的加密配置")]
-    InvalidEncryptionConfig,
-    /// 用户不存在
-    #[error("用户不存在: {0}")]
-    UserNotFound(String),
     /// 服务角色不允许此操作
     #[error("服务角色不允许此操作: {0}")]
     ServiceRoleError(String),
     /// 内部服务器错误
+    #[allow(dead_code)]
     #[error("内部服务器错误")]
     InternalServerError,
 }

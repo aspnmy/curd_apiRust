@@ -1,8 +1,7 @@
-use axum::{Router, routing::get, routing::post, routing::put, routing::delete, Extension, http::StatusCode};use std::sync::Arc;
+use axum::{Router, routing::get, routing::post, Extension, http::StatusCode};use std::sync::Arc;
 
 use crate::config::AppConfig;
 use crate::service::common::CommonService;
-use crate::database::DatabasePool;
 use crate::api::handlers::{common_handlers};
 
 /// 404处理程序

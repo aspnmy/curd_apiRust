@@ -114,6 +114,7 @@ pub struct HealthResponse {
 
 /// 错误响应结构体
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
 pub struct ErrorResponse {
     /// 错误代码
     pub code: String,

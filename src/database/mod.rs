@@ -1,7 +1,6 @@
 use sqlx::PgPool;
 use tracing::{info, error};
 use anyhow::Result;
-use std::str::FromStr;
 
 use crate::config::AppConfig;
 
@@ -17,9 +16,6 @@ pub enum DatabaseError {
     /// 迁移错误
     #[error("数据库迁移错误: {0}")]
     MigrationError(String),
-    /// 查询错误
-    #[error("数据库查询错误: {0}")]
-    QueryError(String),
     /// 事务错误
     #[error("数据库事务错误: {0}")]
     TransactionError(#[from] anyhow::Error),
@@ -57,6 +53,7 @@ pub async fn run_migrations(pool: &DatabasePool) -> Result<(), DatabaseError> {
 }
 
 /// 健康检查
+#[allow(dead_code)]
 pub async fn health_check(pool: &DatabasePool) -> Result<(), DatabaseError> {
     info!("执行数据库健康检查");
     

@@ -1,5 +1,4 @@
 use axum::{http::StatusCode, Json, Extension};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::service::common::CommonService;

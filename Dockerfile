@@ -25,7 +25,7 @@ RUN apt-get update --allow-releaseinfo-change && apt-get install -y --no-install
 WORKDIR /app
 
 # 从构建阶段复制可执行文件
-COPY --from=builder /app/target/release/crudapi ./
+COPY --from=builder /app/target/release/curd_api_rust ./
 
 # 复制环境变量示例文件
 COPY .env.example ./
@@ -34,4 +34,4 @@ COPY .env.example ./
 EXPOSE 8000
 
 # 运行应用
-CMD ["./crudapi"]
+CMD ["./curd_api_rust"]

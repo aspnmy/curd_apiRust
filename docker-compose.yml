@@ -6,7 +6,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-    container_name: crud_api
+    container_name: curd_api_rust
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8000

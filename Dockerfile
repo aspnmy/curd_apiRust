@@ -1,4 +1,4 @@
-FROM rust:1.91.1-slim AS builder
+FROM docker.io/library/rust:1.91.1-slim AS builder
 
 # 设置工作目录
 WORKDIR /app
@@ -14,7 +14,7 @@ COPY migrations ./migrations
 RUN cargo build --release
 
 # 创建运行时镜像
-FROM debian:bullseye-slim
+FROM docker.io/library/debian:13.2-slim
 
 # 安装依赖
 RUN apt-get update --allow-releaseinfo-change && apt-get install -y --no-install-recommends \

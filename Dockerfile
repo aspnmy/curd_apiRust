@@ -1,5 +1,12 @@
 FROM docker.io/library/rust:1.91.1-slim AS builder
 
+# 安装构建依赖
+RUN apt-get update --allow-releaseinfo-change && apt-get install -y --no-install-recommends \
+    build-essential \
+    libssl-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
 # 设置工作目录
 WORKDIR /app
 

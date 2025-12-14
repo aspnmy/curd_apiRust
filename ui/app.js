@@ -1136,7 +1136,10 @@ window.testFileTypeApi = async function() {
         let requestFileType = fileType;
         if (operation === 'add' && selectedFile) {
             // 对于添加操作，如果有选择文件且不是特殊类型，使用文件的实际MIME类型
-            if (fileType !== 'img2dicom') {
+            if (fileType === 'img2dicom') {
+                // img2dicom是特殊类型，保持file_type为img2dicom
+                requestFileType = 'img2dicom';
+            } else {
                 requestFileType = selectedFile.type;
             }
         }

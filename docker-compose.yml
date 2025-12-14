@@ -16,6 +16,9 @@ services:
       - API_VERSION=v1                       # API版本，默认v1
       - ISRULE=true                          # 是否启用规则引擎，默认false
       - ENABLED_PLUGINS=image2base64,image2dicom 
+      # image2dicom_path
+      - IMAGE2DICOM_PATH=/app/image2dicom
+        
       # debug模式
       - DEBUG=true
       - LOG_PATH=/app/logs/crud-api
@@ -49,7 +52,7 @@ services:
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
     volumes:
       - write_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化
-
+      - image2dicom_path:/app/image2dicom
 
   # 读取节点 - 负责处理读操作
   api-read:
@@ -63,6 +66,9 @@ services:
       - API_VERSION=v1                       # API版本，默认v1
       - ISRULE=true                          # 是否启用规则引擎，默认false
       - ENABLED_PLUGINS=image2base64,image2dicom 
+      # image2dicom_path
+      - IMAGE2DICOM_PATH=/app/image2dicom
+
       # debug模式
       - DEBUG=true
       - LOG_PATH=/app/logs/crud-api
@@ -96,7 +102,9 @@ services:
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
     volumes:
       - read_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化
-
+      - image2dicom_path:/app/image2dicom
+      
 volumes:
   write_logs:                              # 定义写入节点日志目录的卷，用于日志持久化
   read_logs:                              # 定义读取节点日志目录的卷，用于日志持久化
+  image2dicom_path:                       # 定义image2dicom路径的卷，用于插件持久化

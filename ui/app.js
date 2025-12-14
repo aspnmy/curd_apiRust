@@ -25,7 +25,7 @@ window.addEventListener('DOMContentLoaded', function() {
     });
     
     // 加载图片列表
-    loadImages();
+    // loadImages(); // 暂时注释，避免500错误
     
     // 监听搜索框回车事件
     const searchInput = document.getElementById('searchInput');

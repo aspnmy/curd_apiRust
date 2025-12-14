@@ -2,10 +2,35 @@ use axum::{Extension, Router, http::StatusCode, routing::get, routing::post, mid
 use axum::middleware::Next;
 use std::sync::Arc;
 use axum::{body::Body, extract::Request, http::{header, HeaderValue, Method}, response::IntoResponse};
+use tracing::info;
 
 use crate::api::handlers::common_handlers;
 use crate::config::AppConfig;
 use crate::service::common::CommonService;
+
+/// 日志中间件，记录所有API请求
+async fn log_request(
+    req: Request<Body>,
+    next: Next,
+) -> impl IntoResponse {
+    // 记录请求信息
+    info!(
+        "请求: {} {}",
+        req.method(),
+        req.uri()
+    );
+    
+    // 执行请求
+    let response = next.run(req).await;
+    
+    // 记录响应信息
+    info!(
+        "响应: {}",
+        response.status()
+    );
+    
+    response
+}
 
 /// 自定义CORS中间件
 async fn custom_cors(
@@ -21,6 +46,27 @@ async fn custom_cors(
     let is_options = req.method() == Method::OPTIONS;
     let mut res = if is_options {
         let mut res = "".into_response();
+        // 设置正确的状态码
+        *res.status_mut() = StatusCode::OK;
+        // 添加CORS头
+        if let Some(Ok(ref origin)) = origin {
+            res.headers_mut().insert(
+                header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                HeaderValue::from_str(origin).unwrap(),
+            );
+        }
+        res.headers_mut().insert(
+            header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+            HeaderValue::from_static("true"),
+        );
+        res.headers_mut().insert(
+            header::ACCESS_CONTROL_ALLOW_METHODS,
+            HeaderValue::from_static("*"),
+        );
+        res.headers_mut().insert(
+            header::ACCESS_CONTROL_ALLOW_HEADERS,
+            HeaderValue::from_str(&config.cors_allow_headers).unwrap(),
+        );
         res.headers_mut().insert(
             header::ACCESS_CONTROL_MAX_AGE,
             HeaderValue::from_static("9999999"),
@@ -32,10 +78,10 @@ async fn custom_cors(
 
     let headers = res.headers_mut();
 
-    if let Some(Ok(origin)) = origin {
+    if let Some(Ok(ref origin)) = origin {
         headers.insert(
             header::ACCESS_CONTROL_ALLOW_ORIGIN,
-            HeaderValue::from_str(&origin).unwrap(),
+            HeaderValue::from_str(origin).unwrap(),
         );
     }
 
@@ -118,8 +164,10 @@ pub fn create_router(common_service: Arc<CommonService>, config: AppConfig) -> R
         .route("/health", get(common_handlers::health_check))
         // API路由组
         .nest("/api", api_router)
+        // 添加日志中间件，确保每个请求都被记录
+        .layer(middleware::from_fn(log_request))
         // 添加CORS中间件
-        .route_layer(middleware::from_fn(custom_cors))
+        .layer(middleware::from_fn(custom_cors))
         // 添加其他中间件
         .layer(Extension(common_service))
         .layer(Extension(config.clone()));

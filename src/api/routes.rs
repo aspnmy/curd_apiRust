@@ -103,7 +103,9 @@ pub fn create_router(common_service: Arc<CommonService>, config: AppConfig) -> R
         .route("/common/:file_type/add", post(common_handlers::handle_file_type_request))
         .route("/common/:file_type/check", post(common_handlers::handle_file_type_request))
         .route("/common/:file_type/update", post(common_handlers::handle_file_type_request))
-        .route("/common/:file_type/isdel", post(common_handlers::handle_file_type_request));
+        .route("/common/:file_type/isdel", post(common_handlers::handle_file_type_request))
+        // 基于file_type的健康检查端点
+        .route("/common/:file_type/health", get(common_handlers::handle_file_type_health_check));
 
     // 只有在调试模式下才添加日志API
     if config.debug {

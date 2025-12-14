@@ -949,7 +949,7 @@ window.testFileTypeApi = async function() {
         
         // 初始化请求数据
         let requestData = {
-            table_name: 'common_data', // 所有数据都写在common_data表中
+            table_name: fileType, 
             operation: operation,
             data: {}
         };

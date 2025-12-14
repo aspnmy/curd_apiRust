@@ -209,3 +209,36 @@ pub async fn handle_file_type_request(
     // 调用通用请求处理函数
     handle_common_request(Extension(common_service), Json(request)).await
 }
+
+/// 处理基于file_type的健康检查请求
+/// 路径结构: /api/common/{file_type}/health
+pub async fn handle_file_type_health_check(
+    Extension(common_service): Extension<Arc<CommonService>>,
+    Path(file_type): Path<String>,
+) -> (StatusCode, Json<HealthResponse>) {
+    // 记录请求信息
+    info!("接收基于file_type的健康检查请求 - file_type: {}, 服务ID: {}", 
+        file_type, common_service.config.service.id);
+    
+    // 调用现有的健康检查方法
+    match common_service.get_health().await {
+        Ok(health) => {
+            // 在健康检查响应中添加file_type信息
+            // 注意：HealthResponse结构体没有file_type字段，我们只能返回标准的健康检查响应
+            info!("基于file_type的健康检查成功 - file_type: {}, 状态: healthy", file_type);
+            (StatusCode::OK, Json(health))
+        },
+        Err(e) => {
+            error!("基于file_type的健康检查失败 - file_type: {}, 错误: {:?}", file_type, e);
+            let error_health = HealthResponse {
+                status: "unhealthy".to_string(),
+                service_id: common_service.config.service.id.clone(),
+                service_role: common_service.config.service.role.clone(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                database_status: "unhealthy".to_string(),
+                started_at: common_service.started_at.clone(),
+            };
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_health))
+        }
+    }
+}

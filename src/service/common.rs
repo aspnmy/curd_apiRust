@@ -101,9 +101,13 @@ impl CommonService {
         self.validate_service_role(&request.operation)?;
         info!("服务角色验证通过");
 
-        // 验证表名
-        self.validate_table_name(&request.table_name)?;
+        // 验证表名 - 固定使用common_data表，忽略传入的table_name
+        self.validate_table_name("common_data")?;
         info!("表名验证通过");
+
+        // 覆盖传入的table_name，固定使用common_data
+        let mut request = request;
+        request.table_name = "common_data".to_string();
 
         let result = match request.operation.as_str() {
             "add" => self.add(request).await,

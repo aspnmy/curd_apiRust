@@ -49,6 +49,8 @@ services:
       - CORS_ALLOW_HEADERS=${CORS_ALLOW_HEADERS:-*}  # 允许的CORS头，默认允许所有
     ports:
       - "7981:8000"                         # 端口映射：主机端口:容器端口
+      # ui_port
+      - "7888:80"
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
     volumes:
       - write_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化
@@ -100,7 +102,7 @@ services:
     ports:
       - "7982:8000"                         # 端口映射：主机端口:容器端口
       # ui_port
-      - "7888:80"
+      - "7889:80"
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
     volumes:
       - read_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化

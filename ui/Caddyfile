@@ -20,7 +20,7 @@
     }
     
     # 处理OPTIONS请求
-    @options { method OPTIONS }
+    @options method OPTIONS
     respond @options 204
     
     # 配置静态文件缓存

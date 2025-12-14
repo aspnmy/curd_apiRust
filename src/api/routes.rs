@@ -1,4 +1,5 @@
-use axum::{Extension, Router, http::StatusCode, routing::get, routing::post};
+use axum::{Extension, Router, http::StatusCode, routing::get, routing::post, middleware};
+use axum_cors::cors;
 use std::sync::Arc;
 
 use crate::api::handlers::common_handlers;
@@ -12,8 +13,8 @@ async fn not_found_handler() -> (StatusCode, &'static str) {
 
 /// 创建API路由
 pub fn create_router(common_service: Arc<CommonService>, config: AppConfig) -> Router {
-    // 创建路由
-    Router::new()
+    // 创建基础路由
+    let mut router = Router::new()
         // 健康检查
         .route("/health", get(common_handlers::health_check))
         // API路由组
@@ -28,9 +29,16 @@ pub fn create_router(common_service: Arc<CommonService>, config: AppConfig) -> R
                 .route("/update", post(common_handlers::handle_common_request))
                 .route("/isdel", post(common_handlers::handle_common_request))
         })
-        // 添加404处理，使用axum::routing::any处理所有未匹配的请求
-        .fallback(get(not_found_handler))
-        // 添加中间件
+        // 添加CORS中间件
+        .route_layer(middleware::from_fn(cors))
+        // 添加其他中间件
         .layer(Extension(common_service))
-        .layer(Extension(config.clone()))
+        .layer(Extension(config.clone()));
+
+
+    
+    // 添加404处理，使用axum::routing::any处理所有未匹配的请求
+    router = router.fallback(get(not_found_handler));
+    
+    router
 }

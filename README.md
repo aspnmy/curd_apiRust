@@ -1,6 +1,6 @@
 # CURD API Rust Service
 
-一个基于 Rust 和 Axum 的通用 CRUD API 服务，支持多实例部署、读写分离和动态 SQL 生成。
+一个基于 Rust 和 Axum 的通用 CRUD API 服务，支持多实例部署、读写分离、动态 SQL 生成和插件系统。
 
 ## 架构设计
 
@@ -18,6 +18,9 @@
 - **通用表结构**：单一表结构支持所有数据类型，无需修改表结构
 - **灵活权限控制**：支持 users/admin 等多种权限标识
 - **自动时间更新**：自动更新 is_date 字段，记录最后更新时间
+- **插件系统**：支持动态加载和执行插件，实现功能扩展
+  - **image2base64**：图片转Base64插件
+  - **image2dicom**：图片转DICOM插件
 
 ### 技术栈
 
@@ -29,6 +32,9 @@
 - **序列化**：Serde
 - **日志**：Tracing
 - **配置管理**：Dotenvy
+- **HTTP客户端**：Reqwest (用于插件系统)
+- **Base64编码**：base64 crate (用于图片处理)
+- **随机数生成**：rand crate (用于生成唯一ID)
 
 ## 部署方式
 
@@ -174,9 +180,11 @@ docker-compose up -d
 | `ENCRYPTION_ITERATIONS` | 迭代次数 | `100000` |
 | `SERVICE_ROLE` | 服务角色（read/write/mixed） | `mixed` |
 | `SERVICE_ID` | 服务 ID | `crud-01` |
-| `SQL_TABLE` | 允许操作的逻辑表名白名单，逗号分隔 | `users,resources,encryption_keys` |
+| `SQL_TABLE` | 允许操作的表名，仅支持单表 | `common_data` |
 | `RUN_MIGRATIONS` | 是否运行数据库迁移 | `true` |
 | `MIGRATION_STRATEGY` | 数据库迁移策略，可选值：repair（修复）、ignore（忽略）、strict（严格） | `strict` |
+| `ISRULE` | 是否启用插件系统 | `false` |
+| `ENABLED_PLUGINS` | 启用的插件列表，逗号分隔 | `image2base64,image2dicom` |
 
 ## API 端点
 
@@ -190,12 +198,12 @@ GET /health
 
 #### 通用请求格式
 
-所有请求都使用 POST 方法，请求体为 JSON 格式，包含操作类型、表名、数据和条件等信息。
+所有请求都使用 POST 方法，请求体为 JSON 格式，包含操作类型、文件类型、数据和条件等信息。
 
 ```json
 {
   "operation": "add", // add, check, update, isdel
-  "table_name": "users", // 逻辑表名
+  "file_type": "image", // 逻辑文件类型
   "data": { /* 操作数据 */ }, // 操作数据，用于 add 和 update
   "where_conditions": [ /* 查询条件 */ ], // 查询条件，用于 check, update 和 isdel
   "fields": [ /* 查询字段 */ ], // 查询字段，用于 check
@@ -250,7 +258,7 @@ POST /api/isdel
 ```sql
 CREATE TABLE common_data (
     id SERIAL PRIMARY KEY,                      -- 主键ID
-    table_name VARCHAR(255) NOT NULL,           -- 逻辑表名，用于区分不同类型的数据
+    file_type VARCHAR(255) NOT NULL,            -- 逻辑文件类型，用于区分不同类型的数据
     datainfos JSONB NOT NULL DEFAULT '{}'::jsonb, -- 通用JSON数据存储
     is_rols VARCHAR(50) DEFAULT 'users',        -- 权限标识，如users、admin等
     is_del BOOLEAN DEFAULT FALSE,               -- 逻辑删除标识，true表示已删除
@@ -263,7 +271,7 @@ CREATE TABLE common_data (
 ### 字段说明
 
 - **id**：主键ID，自动递增
-- **table_name**：逻辑表名，用于区分不同类型的数据
+- **file_type**：逻辑文件类型，用于区分不同类型的数据
 - **datainfos**：通用JSON数据存储，支持任意键值对
 - **is_rols**：权限标识，如users、admin等
 - **is_del**：逻辑删除标识，true表示已删除
@@ -278,11 +286,11 @@ CREATE TABLE common_data (
 ```json
 {
   "operation": "add",
-  "table_name": "users",
+  "file_type": "image",
   "data": {
-    "username": "test_user",
-    "email": "test@example.com",
-    "password": "hashed_password"
+    "file_name": "test.jpg",
+    "file_size": 1024,
+    "file_content": "base64_encoded_image_data"
   }
 }
 ```
@@ -292,12 +300,12 @@ CREATE TABLE common_data (
 ```json
 {
   "operation": "check",
-  "table_name": "users",
+  "file_type": "image",
   "where_conditions": [
     {
-      "field": "username",
-      "operator": "=",
-      "value": "test_user"
+      "field": "file_name",
+      "operator": "LIKE",
+      "value": "%test%"
     }
   ]
 }
@@ -308,15 +316,15 @@ CREATE TABLE common_data (
 ```json
 {
   "operation": "update",
-  "table_name": "users",
+  "file_type": "image",
   "data": {
-    "email": "new_email@example.com"
+    "file_description": "Updated description"
   },
   "where_conditions": [
     {
-      "field": "username",
+      "field": "file_id",
       "operator": "=",
-      "value": "test_user"
+      "value": "file_123456789"
     }
   ]
 }
@@ -327,16 +335,16 @@ CREATE TABLE common_data (
 ```json
 {
   "operation": "isdel",
-  "table_name": "users",
+  "file_type": "image",
   "soft_delete_config": {
     "field": "is_del",
     "value": "true"
   },
   "where_conditions": [
     {
-      "field": "username",
+      "field": "file_id",
       "operator": "=",
-      "value": "test_user"
+      "value": "file_123456789"
     }
   ]
 }
@@ -403,6 +411,11 @@ cargo install sqlx-cli
 # 运行数据库
 docker run -d -p 5432:5432 -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=secret_gallery postgres:14-alpine
 
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑.env文件，配置数据库连接等信息
+
 # 运行迁移
 sqlx migrate run
 
@@ -441,6 +454,54 @@ cargo fmt
 
 # 运行 clippy
 cargo clippy
+```
+
+## 插件系统
+
+### 插件开发
+
+插件系统基于 `RulePlugin` trait 设计，所有插件都需要实现这个 trait。
+
+```rust
+pub trait RulePlugin {
+    fn name(&self) -> &'static str;
+    fn init(&mut self) -> Result<()> { Ok(()) }
+    fn execute(
+        &self,
+        file_type: &str,
+        data: serde_json::Value,
+    ) -> BoxFuture<'_, Result<serde_json::Value>>;
+}
+```
+
+### 内置插件
+
+#### image2base64
+
+将图片转换为 Base64 编码格式。
+
+- 支持多种图片输入格式
+- 自动检测图片 MIME 类型
+- 生成完整的 Base64 URL
+
+#### image2dicom
+
+将图片转换为 DICOM 格式。
+
+- 调用外部 DICOM 转换服务
+- 支持多种图片输入格式
+- 生成 DICOM 文件路径和 Base64 编码
+
+### 插件配置
+
+插件可以通过环境变量进行配置：
+
+```bash
+# 启用插件系统
+ISRULE=true
+
+# 启用特定插件
+ENABLED_PLUGINS=image2base64,image2dicom
 ```
 
 ## 贡献指南

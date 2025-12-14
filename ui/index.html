@@ -90,6 +90,100 @@
                     </select>
                 </div>
                 
+                <!-- 操作指导 -->
+                <div id="operationGuide" class="operation-guide">
+                    <p><strong>操作指导:</strong></p>
+                    <div id="guideList">
+                        <!-- add操作指南 -->
+                        <div class="guide-item" data-operation="add">
+                            <strong>add (添加):</strong> 选择文件并填写必要信息，点击测试按钮上传文件
+                            <div class="guide-example">
+                                <strong>示例:</strong>
+                                <p>1. 选择要上传的文件</p>
+                                <p>2. 选择对应的file_type（如image）</p>
+                                <p>3. 可选：在JSON数据中补充额外字段</p>
+                                <p>系统会自动生成file_id、file_sha256等必填字段</p>
+                            </div>
+                        </div>
+                        
+                        <!-- check操作指南 -->
+                        <div class="guide-item" data-operation="check">
+                            <strong>check (查询):</strong> 填写查询条件，点击测试按钮查询数据
+                            <div class="guide-example">
+                                <strong>JSON格式示例:</strong>
+                                <pre>{"file_name": "test_image.jpg"}</pre>
+                                <p>或更复杂的条件:</p>
+                                <pre>{"file_type": "image/jpeg", "file_size": {"$gt": 10000}}</pre>
+                                <p>说明：</p>
+                                <ul>
+                                    <li>留空JSON数据可查询所有数据</li>
+                                    <li>勾选"显示所有数据"可查询包括已删除的数据</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- update操作指南 -->
+                        <div class="guide-item" data-operation="update">
+                            <strong>update (更新):</strong> 填写要更新的数据和条件，点击测试按钮更新数据
+                            <div class="guide-example">
+                                <strong>JSON格式示例:</strong>
+                                <pre>{"id": 1, "file_name": "new_name.jpg", "file_description": "新描述"}</pre>
+                                <p>或使用明确的where_conditions:</p>
+                                <pre>{"where_conditions": [{"field": "id", "operator": "=", "value": 1}], "file_name": "new_name.jpg"}</pre>
+                                <p>说明：</p>
+                                <ul>
+                                    <li>如果提供id字段，将自动作为更新条件</li>
+                                    <li>使用where_conditions可指定更复杂的更新条件</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- isdel操作指南 -->
+                        <div class="guide-item" data-operation="isdel">
+                            <strong>isdel (删除):</strong> 填写删除条件，点击测试按钮删除数据
+                            <div class="guide-example">
+                                <strong>JSON格式示例:</strong>
+                                <pre>{"id": 1}</pre>
+                                <p>或使用明确的where_conditions:</p>
+                                <pre>{"where_conditions": [{"field": "file_name", "operator": "=", "value": "test.jpg"}]}</pre>
+                                <p>说明：</p>
+                                <ul>
+                                    <li>默认使用软删除（标记删除）</li>
+                                    <li>可自定义删除字段和值</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 动态表单字段，根据选择的操作类型显示 -->
+                <div id="dynamicFields" class="form-group">
+                    <!-- check操作的audit参数 -->
+                    <div id="checkFields" style="display: none;">
+                        <label><input type="checkbox" id="checkAudit"> 显示所有数据（包括已删除）</label>
+                    </div>
+                    
+                    <!-- update操作的提示 -->
+                    <div id="updateFields" style="display: none;">
+                        <div style="color: #666; font-size: 12px; margin-bottom: 10px;">
+                            <strong>提示:</strong> 在JSON数据中填写要更新的字段，系统会自动将data中的字段作为更新条件
+                        </div>
+                    </div>
+                    
+                    <!-- isdel操作的soft_delete_config参数 -->
+                    <div id="isdelFields" style="display: none;">
+                        <div style="color: #666; font-size: 12px; margin-bottom: 10px;">
+                            <strong>提示:</strong> 可选择自定义删除字段和值，或使用默认设置
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <label for="isdelField">删除字段:</label>
+                            <input type="text" id="isdelField" placeholder="默认: is_del" value="is_del">
+                            <label for="isdelValue">删除值:</label>
+                            <input type="text" id="isdelValue" placeholder="默认: true" value="true">
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label for="testFileTypeFile">选择文件 (用于add操作):</label>
                     <input type="file" id="testFileTypeFile" accept="*/*">
@@ -107,6 +201,13 @@
                 </div>
                 
                 <button onclick="testFileTypeApi()">测试API</button>
+                
+                <!-- 显示check操作的结果，允许选择要更新的数据 -->
+                <div id="checkResults" style="margin-top: 15px; display: none;">
+                    <h3>查询结果</h3>
+                    <div class="check-results-list" id="checkResultsList"></div>
+                </div>
+                
                 <div id="testFileTypeResult" style="margin-top: 10px; padding: 10px; background-color: #f0f0f0; border-radius: 5px; display: none;"></div>
             </div>
         </div>

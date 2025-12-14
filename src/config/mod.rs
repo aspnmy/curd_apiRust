@@ -18,7 +18,7 @@ pub struct AppConfig {
     /// 服务角色配置
     pub service: ServiceRoleConfig,
     /// 允许操作的表名白名单
-    pub allowed_tables: Vec<String>,
+    pub sql_table_all: Vec<String>,
     /// 允许的CORS头
     pub cors_allow_headers: String,
     /// 是否启用调试模式
@@ -103,8 +103,8 @@ impl AppConfig {
         }
 
         // 从环境变量读取允许的表名，支持逗号分隔的字符串
-        let allowed_tables = env::var("SQL_TABLE")
-            .unwrap_or("users,resources,encryption_keys".to_string())
+        let sql_table_all = env::var("SQL_TABLE")
+            .unwrap_or("common_data".to_string())
             .split(',')
             .map(|table| table.trim().to_string())
             .filter(|table| !table.is_empty())
@@ -151,7 +151,7 @@ impl AppConfig {
                 role: env::var("SERVICE_ROLE").unwrap_or("mixed".to_string()),
                 id: env::var("SERVICE_ID").unwrap_or("crud-01".to_string()),
             },
-            allowed_tables,
+            sql_table_all,
             cors_allow_headers: env::var("CORS_ALLOW_HEADERS").unwrap_or("*".to_string()),
             debug: env::var("DEBUG").unwrap_or("false".to_string()).parse()?,
             log_path: env::var("LOG_PATH").unwrap_or("./logs".to_string()),

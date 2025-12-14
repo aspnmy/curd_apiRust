@@ -13,8 +13,8 @@ pub async fn handle_common_request(
     Json(request): Json<CommonRequest>,
 ) -> (StatusCode, Json<CommonResponse>) {
     // 记录请求信息
-    info!("接收通用请求 - 操作类型: {}, 表名: {}, 服务ID: {}", 
-        request.operation, request.table_name, common_service.config.service.id);
+    info!("接收通用请求 - 操作类型: {}, 文件类型: {:?}, 服务ID: {}", 
+        request.operation, request.file_type, common_service.config.service.id);
     debug!("请求详情: {:?}", request);
     
     let result = common_service.execute(request).await;
@@ -62,8 +62,8 @@ pub async fn handle_batch_request(
     let mut failure_count = 0;
 
     for (index, request) in batch_request.requests.into_iter().enumerate() {
-        info!("处理批量请求中的第 {} 个请求 - 操作类型: {}, 表名: {}", 
-            index + 1, request.operation, request.table_name);
+        info!("处理批量请求中的第 {} 个请求 - 操作类型: {}, 文件类型: {:?}", 
+            index + 1, request.operation, request.file_type);
         
         match common_service.execute(request).await {
             Ok(response) => {
@@ -161,21 +161,26 @@ pub async fn get_logs(
 /// 路径结构: /api/{version}/{add、check、update、isdel}
 pub async fn handle_file_type_request(
     Extension(common_service): Extension<Arc<CommonService>>,
-    Path(params): Path<(String, String)>, // (version, operation)
+    Path(version): Path<String>, // 只提取version参数
     Json(mut request): Json<CommonRequest>,
 ) -> (StatusCode, Json<CommonResponse>) {
-    // 从路径参数中提取version和operation
-    let (version, operation) = params;
+    // 从路由路径获取operation
+    // 注意：operation已经在路由中固定，所以可以从请求URL的路径中获取
+    // 或者直接使用request.operation，因为前端应该在请求体中发送operation
     
     // 记录请求信息
     info!("接收基于version的请求 - version: {}, operation: {}, 服务ID: {}", 
-        version, operation, common_service.config.service.id);
+        version, request.operation, common_service.config.service.id);
     debug!("请求详情: {:?}", request);
-    
-    // 设置请求的操作类型
-    request.operation = operation.clone();    
 
-    
+    // 设置file_type字段
+    // 从请求的data中获取file_type值，并将其作为file_type
+    if let serde_json::Value::Object(ref obj) = request.data {
+        if let Some(serde_json::Value::String(file_type)) = obj.get("file_type") {
+            request.file_type = Some(file_type.clone());
+        }
+    }
+
     // 在data中添加version字段，用于记录API版本
     if let serde_json::Value::Object(ref mut obj) = request.data {
         // 添加version字段

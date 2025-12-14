@@ -13,6 +13,9 @@ services:
       - SERVER_HOST=0.0.0.0                # 服务器监听地址，默认0.0.0.0
       - SERVER_PORT=8000                     # 服务器监听端口，默认8000
       - HTTPS=false                          # 是否启用HTTPS，默认false
+      - API_VERSION=v1                       # API版本，默认v1
+      - ISRULE=true                          # 是否启用规则引擎，默认false
+      - ENABLED_PLUGINS=image2base64,image2dicom 
       # debug模式
       - DEBUG=true
       - LOG_PATH=/app/logs/crud-api
@@ -57,6 +60,9 @@ services:
       - SERVER_HOST=0.0.0.0                # 服务器监听地址，默认0.0.0.0
       - SERVER_PORT=8000                     # 服务器监听端口，默认8000
       - HTTPS=false                          # 是否启用HTTPS，默认false
+      - API_VERSION=v1                       # API版本，默认v1
+      - ISRULE=true                          # 是否启用规则引擎，默认false
+      - ENABLED_PLUGINS=image2base64,image2dicom 
       # debug模式
       - DEBUG=true
       - LOG_PATH=/app/logs/crud-api

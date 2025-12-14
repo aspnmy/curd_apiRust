@@ -16,6 +16,7 @@ use crate::service::common::CommonService;
 mod api;
 mod config;
 mod database;
+mod rule;
 mod service;
 
 /// 设置日志配置

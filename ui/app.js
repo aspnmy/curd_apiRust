@@ -25,7 +25,7 @@ window.addEventListener('DOMContentLoaded', function() {
     });
     
     // 加载图片列表
-    // loadImages(); // 暂时注释，避免500错误
+     loadImages(); // 暂时注释，避免500错误
     
     // 监听搜索框回车事件
     const searchInput = document.getElementById('searchInput');
@@ -102,7 +102,7 @@ async function uploadImage() {
         
         // 构造请求数据（符合服务器期望的格式和datainfos规则）
         const requestData = {
-            file_type: 'resources',
+            file_type: file.type, // 使用完整的MIME类型，如image/jpeg、image/png等
             operation: 'add',
             data: {
                 file_id: fileId,
@@ -259,10 +259,10 @@ async function loadImages() {
         // 构造请求数据（符合服务器期望的格式）
         const showAll = document.getElementById('showAllCheckbox').checked;
         const requestData = {
-            file_type: 'resources',  // 修正字段名
-            operation: 'check',       // 修正字段名
+            file_type: 'image',  // 使用正确的file_type值
+            operation: 'check',       // 操作类型
             data: {},                 // 重要：data字段是必填的，不能为空
-            where_conditions: showAll ? null : [  // 修正格式，showAll为true时设置为null
+            where_conditions: showAll ? null : [  // showAll为true时设置为null
                 { 
                     field: 'is_del', 
                     operator: '=', 
@@ -337,7 +337,7 @@ async function searchImages() {
         });
         
         const requestData = {
-            table_name: 'resources',
+            file_type: 'image', // 统一使用file_type字段，替换旧的table_name
             operation: 'check',
             data: {},                 // 重要：data字段是必填的，不能为空
             where_conditions: where_conditions.length > 0 ? where_conditions : null,
@@ -381,23 +381,31 @@ function renderImageList(images) {
     }
     
     const html = images.map(image => {
-        const isDeleted = image.deleted || false;
+        // 使用正确的删除状态字段
+        const isDeleted = image.is_del || false;
+        
+        // 使用正确的图片内容字段名
+        const imageContent = image.file_content || image.image_content || '';
+        
+        // 获取唯一标识
+        const itemId = image.id || image.file_id;
+        
         return `
-            <div class="image-item" data-id="${image.id}">
+            <div class="image-item" data-id="${itemId}">
                 <div class="image-item-info">
                     <div>名称: ${image.file_name || '未知'}</div>
                     <div>类型: ${image.file_type || 'unknown'}</div>
                     <div>大小: ${formatFileSize(image.file_size || 0)}</div>
-                    <div>ID: ${image.id}</div>
+                    <div>ID: ${itemId}</div>
                     ${isDeleted ? '<div style="color: red;">已删除</div>' : ''}
                 </div>
-                <div style="cursor: pointer;" onclick="showImageDetail(${image.id})">
-                    ${image.content ? `<img src="${image.content}" alt="${image.file_name}" onclick="event.stopPropagation()">` : '<div style="height: 150px; background-color: #eee; display: flex; align-items: center; justify-content: center; color: #999;">无预览</div>'}
+                <div style="cursor: pointer;" onclick="showImageDetail('${itemId}')">
+                    ${imageContent ? `<img src="${imageContent}" alt="${image.file_name}" onclick="event.stopPropagation()">` : '<div style="height: 150px; background-color: #eee; display: flex; align-items: center; justify-content: center; color: #999;">无预览</div>'}
                 </div>
                 <div class="image-item-actions">
-                    <button onclick="event.stopPropagation(); showImageDetail(${image.id})">详情</button>
-                    ${!isDeleted ? `<button onclick="event.stopPropagation(); editImage(${image.id})">修改</button>` : '<button disabled>修改</button>'}
-                    <button onclick="event.stopPropagation(); deleteImage(${image.id}, ${isDeleted})">${isDeleted ? '真实删除' : '标记删除'}</button>
+                    <button onclick="event.stopPropagation(); showImageDetail('${itemId}')">详情</button>
+                    ${!isDeleted ? `<button onclick="event.stopPropagation(); editImage('${itemId}')">修改</button>` : '<button disabled>修改</button>'}
+                    <button onclick="event.stopPropagation(); deleteImage('${itemId}', ${isDeleted})">${isDeleted ? '真实删除' : '标记删除'}</button>
                 </div>
             </div>
         `;
@@ -436,7 +444,7 @@ async function showImageDetail(id) {
         
         // 构造请求数据（符合服务器期望的格式）
         const requestData = {
-            table_name: 'resources',
+            file_type: 'image', // 统一使用file_type字段，替换旧的table_name
             operation: 'check',
             data: {},                 // 重要：data字段是必填的，不能为空
             where_conditions: [
@@ -479,11 +487,14 @@ async function showImageDetail(id) {
 // 渲染图片详情
 function renderImageDetail(image) {
     const imageDetail = document.getElementById('imageDetail');
-    const isDeleted = image.deleted || false;
+    const isDeleted = image.is_del || false;
+    
+    // 使用正确的图片内容字段名
+    const imageContent = image.file_content || image.image_content || '';
     
     const html = `
         <div class="detail-image">
-            ${image.content ? `<img src="${image.content}" alt="${image.file_name}">` : '<div style="height: 300px; background-color: #eee; display: flex; align-items: center; justify-content: center; color: #999;">无预览</div>'}
+            ${imageContent ? `<img src="${imageContent}" alt="${image.file_name}">` : '<div style="height: 300px; background-color: #eee; display: flex; align-items: center; justify-content: center; color: #999;">无预览</div>'}
         </div>
         <div class="detail-info">
             <strong>ID:</strong>
@@ -549,7 +560,7 @@ async function editImage(id) {
         
         // 获取图片详情（符合服务器期望的格式）
         const requestData = {
-            table_name: 'resources',
+            file_type: 'image', // 统一使用file_type字段，替换旧的table_name
             operation: 'check',
             data: {},                 // 重要：data字段是必填的，不能为空
             where_conditions: [
@@ -677,7 +688,7 @@ async function saveImageChanges() {
         }
         
         const requestData = {
-            table_name: 'resources',
+            file_type: 'image', // 统一使用file_type字段，替换旧的table_name
             operation: 'update',
             where_conditions: [
                 {
@@ -741,7 +752,7 @@ async function deleteImage(id, isDeleted) {
         // 注意：服务器只支持 'add', 'check', 'update', 'isdel' 四个操作类型
         // 真实删除和标记删除都使用 'isdel' 操作，通过不同的配置来区分
         requestData = {
-            table_name: 'resources',
+            file_type: 'image', // 统一使用file_type字段，替换旧的table_name
             operation: 'isdel',
             data: {},                 // 重要：data字段是必填的，不能为空
             where_conditions: [
@@ -882,7 +893,7 @@ window.testAddData = async function() {
         
         // 构造请求数据
         const requestData = {
-            file_type: tableName,
+            file_type: processedData.file_type || tableName, // 使用完整的MIME类型或表名
             operation: 'add',
             data: processedData
         };
@@ -917,6 +928,170 @@ window.testAddData = async function() {
 }
 
 // 测试基于file_type的API端点（全局函数）
+// 页面加载完成后，初始化事件监听器
+window.addEventListener('DOMContentLoaded', function() {
+    // 监听操作类型选择变化
+    const operationSelect = document.getElementById('testOperation');
+    if (operationSelect) {
+        operationSelect.addEventListener('change', function() {
+            const operation = this.value;
+            updateDynamicFields(operation);
+        });
+        
+        // 初始加载时显示对应操作的字段
+        updateDynamicFields(operationSelect.value);
+    }
+});
+
+// 更新动态表单字段和操作指南，根据选择的操作类型显示
+function updateDynamicFields(operation) {
+    // 隐藏所有动态字段
+    document.getElementById('checkFields').style.display = 'none';
+    document.getElementById('updateFields').style.display = 'none';
+    document.getElementById('isdelFields').style.display = 'none';
+    
+    // 显示对应的动态字段
+    switch(operation) {
+        case 'check':
+            document.getElementById('checkFields').style.display = 'block';
+            break;
+        case 'update':
+            document.getElementById('updateFields').style.display = 'block';
+            break;
+        case 'isdel':
+            document.getElementById('isdelFields').style.display = 'block';
+            break;
+        default:
+            break;
+    }
+    
+    // 更新操作指南显示
+    const guideItems = document.querySelectorAll('.guide-item');
+    guideItems.forEach(item => {
+        if (item.dataset.operation === operation) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    // 更新文件输入的描述文本，根据操作类型
+    const fileInputLabel = document.querySelector('label[for="testFileTypeFile"]');
+    const fileInputHelp = document.querySelector('label[for="testFileTypeFile"] + div');
+    
+    // 只在元素存在时才设置textContent
+    if (fileInputLabel && fileInputHelp) {
+        if (operation === 'update') {
+            fileInputLabel.textContent = '选择文件 (用于update操作，可选，更新图片内容):';
+            fileInputHelp.textContent = '支持所有文件类型，会根据选择的file_type处理。如不选择新文件，将保留原有图片内容';
+        } else {
+            fileInputLabel.textContent = '选择文件 (用于add操作):';
+            fileInputHelp.textContent = '支持所有文件类型，会根据选择的file_type处理';
+        }
+    }
+}
+
+// 显示check操作的结果，允许选择要更新的数据
+function displayCheckResults(data) {
+    const checkResultsDiv = document.getElementById('checkResults');
+    const checkResultsListDiv = document.getElementById('checkResultsList');
+    
+    if (!Array.isArray(data) || data.length === 0) {
+        checkResultsListDiv.innerHTML = '<div style="color: #666; padding: 10px;">没有找到匹配的数据</div>';
+        checkResultsDiv.style.display = 'block';
+        return;
+    }
+    
+    // 生成结果列表HTML
+    const resultsHtml = data.map((item, index) => {
+        // 生成简短的预览信息
+        const previewInfo = [];
+        if (item.file_id) previewInfo.push(`ID: ${item.file_id}`);
+        if (item.file_name) previewInfo.push(`名称: ${item.file_name}`);
+        if (item.file_type) previewInfo.push(`类型: ${item.file_type}`);
+        if (item.id) previewInfo.push(`数据库ID: ${item.id}`);
+        
+        return `
+            <div class="check-result-item" data-index="${index}" data-item='${JSON.stringify(item)}'>
+                <div class="check-result-info">
+                    <div class="check-result-preview">${previewInfo.join(' | ')}</div>
+                    <div class="check-result-actions">
+                        <button onclick="selectItemForUpdate(${index}, '${JSON.stringify(item).replace(/'/g, "&#39;")}')">选择更新</button>
+                        <button onclick="viewItemDetails('${JSON.stringify(item).replace(/'/g, "&#39;")}')">查看详情</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    checkResultsListDiv.innerHTML = resultsHtml;
+    checkResultsDiv.style.display = 'block';
+}
+
+// 选择要更新的数据
+function selectItemForUpdate(index, itemStr) {
+    try {
+        const item = JSON.parse(itemStr);
+        
+        // 将选择的item数据填充到表单中
+        const dataJsonInput = document.getElementById('testFileTypeData');
+        
+        // 构建更新数据格式，包含where_conditions
+        const updateData = {
+            where_conditions: [
+                {
+                    field: item.id ? 'id' : 'file_id',
+                    operator: '=',
+                    value: item.id || item.file_id
+                }
+            ],
+            // 填充部分字段作为默认更新数据
+            file_name: item.file_name,
+            file_description: item.file_description || '',
+            file_roles: item.file_roles || ['user']
+        };
+        
+        dataJsonInput.value = JSON.stringify(updateData, null, 2);
+        
+        // 切换到update操作
+        const operationSelect = document.getElementById('testOperation');
+        operationSelect.value = 'update';
+        updateDynamicFields('update');
+        
+        // 显示提示
+        showMessage('已选择数据，现在可以修改JSON数据或上传新文件进行更新', 'info');
+    } catch (error) {
+        console.error('选择更新数据失败:', error);
+        showMessage('选择更新数据失败', 'error');
+    }
+}
+
+// 查看数据详情
+function viewItemDetails(itemStr) {
+    try {
+        const item = JSON.parse(itemStr);
+        
+        // 显示详情模态框
+        const detailHtml = `
+            <div class="modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1000;">
+                <div class="modal-content" style="background-color: white; padding: 20px; border-radius: 8px; max-width: 80%; max-height: 80%; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>数据详情</h3>
+                        <button onclick="this.closest('.modal').remove();" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">关闭</button>
+                    </div>
+                    <pre style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(item, null, 2)}</pre>
+                </div>
+            </div>
+        `;
+        
+        // 添加到body
+        document.body.insertAdjacentHTML('beforeend', detailHtml);
+    } catch (error) {
+        console.error('查看详情失败:', error);
+        showMessage('查看详情失败', 'error');
+    }
+}
+
 window.testFileTypeApi = async function() {
     try {
         // 获取输入值
@@ -927,11 +1102,20 @@ window.testFileTypeApi = async function() {
         const dataJsonInput = document.getElementById('testFileTypeData');
         const resultDiv = document.getElementById('testFileTypeResult');
         
+        // 获取动态字段的值
+        const checkAuditCheckbox = document.getElementById('checkAudit');
+        const isdelFieldInput = document.getElementById('isdelField');
+        const isdelValueInput = document.getElementById('isdelValue');
+        
         const fileType = fileTypeSelect.value;
         const operation = operationSelect.value;
         const selectedFile = fileInput.files[0];
         const tableName = tableNameInput.value.trim();
         const dataJsonStr = dataJsonInput.value.trim();
+        // 获取额外参数
+        const audit = checkAuditCheckbox ? checkAuditCheckbox.checked : false;
+        const isdelField = isdelFieldInput ? isdelFieldInput.value : 'is_del';
+        const isdelValue = isdelValueInput ? isdelValueInput.value : 'true';
         
         // 解析用户提供的JSON数据（可选）
         let userData = {};
@@ -948,14 +1132,22 @@ window.testFileTypeApi = async function() {
         showMessage('正在测试基于file_type的API...', 'info');
         
         // 初始化请求数据
+        // 根据文件类型和实际文件，正确拼合file_type值
+        let requestFileType = fileType;
+        if (operation === 'add' && selectedFile) {
+            // 对于添加操作，如果有选择文件且不是特殊类型，使用文件的实际MIME类型
+            if (fileType !== 'img2dicom') {
+                requestFileType = selectedFile.type;
+            }
+        }
         let requestData = {
-            file_type: fileType, 
+            file_type: requestFileType, 
             operation: operation,
             data: {}
         };
         
-        // 如果是add操作且选择了文件，自动生成文件相关字段
-        if (operation === 'add' && selectedFile) {
+        // 如果是add或update操作且选择了文件，处理文件上传
+        if ((operation === 'add' || operation === 'update') && selectedFile) {
             // 将文件转换为Base64
             const base64Content = await fileToBase64(selectedFile);
             
@@ -972,30 +1164,21 @@ window.testFileTypeApi = async function() {
                 console.warn(`使用模拟SHA256值: ${fileSha256}`);
             }
             
-            // 生成文件唯一标识符（格式：file_{file_sha256前16位}_{4位随机数}）
-            const sha256Prefix = fileSha256.slice(0, 16);
-            const randomNum = Math.floor(1000 + Math.random() * 9000);
-            const fileId = `file_${sha256Prefix}_${randomNum}`;
-            
             // 获取当前时间（UTC格式）
             const fileUploadTime = new Date().toISOString();
             
             // 获取用户出口IP地址
             const fileUploadIp = await getUserIpAddress();
             
-            // 构建基础文件元数据
+            // 构建文件相关元数据
             const fileMetadata = {
-                file_id: fileId,
                 file_name: selectedFile.name,
-                file_type: fileType, // 使用用户选择的file_type，而不是文件的实际类型
+                file_type: selectedFile.type, // 使用文件的实际MIME类型，如image/png、image/jpeg等
                 file_size: selectedFile.size,
                 file_sha256: fileSha256,
-                file_description: `上传的${fileType}文件: ${selectedFile.name}`,
                 file_upload_time: fileUploadTime,
                 file_upload_user: 'current_user', // 实际项目中应从登录信息获取
-                file_upload_ip: fileUploadIp,
-                file_roles: ['user'], // 实际项目中应根据用户角色设置
-                file_status: 'active'
+                file_upload_ip: fileUploadIp
             };
             
             // 处理img2dicom类型的特殊要求
@@ -1003,9 +1186,6 @@ window.testFileTypeApi = async function() {
                 console.log('处理img2dicom类型的文件上传');
                 
                 // 根据img2dicom.rule.md要求，设置特殊字段
-                // image_content: 上传的image文件的base64编码后的内容
-                // dicom_path: 转换后的dicom文件的路径（后端填充）
-                // dicom_content: dicom文件base64编码后的内容（后端填充）
                 Object.assign(fileMetadata, {
                     image_content: base64Content, // 将图片内容存储到image_content字段
                     dicom_path: '', // 初始化为空，后端会填充
@@ -1017,17 +1197,38 @@ window.testFileTypeApi = async function() {
             }
             
             // 合并文件元数据和用户提供的数据（用户数据优先级更高）
-            requestData.data = {
-                ...fileMetadata,
-                ...userData
-            };
+            if (operation === 'add') {
+                // 对于add操作，生成完整的文件元数据
+                // 生成文件唯一标识符（格式：file_{file_sha256前16位}_{4位随机数}）
+                const sha256Prefix = fileSha256.slice(0, 16);
+                const randomNum = Math.floor(1000 + Math.random() * 9000);
+                const fileId = `file_${sha256Prefix}_${randomNum}`;
+                
+                const fullMetadata = {
+                    file_id: fileId,
+                    file_roles: ['user'], // 实际项目中应根据用户角色设置
+                    file_status: 'active',
+                    ...fileMetadata
+                };
+                
+                requestData.data = {
+                    ...fullMetadata,
+                    ...userData
+                };
+            } else {
+                // 对于update操作，只合并文件相关字段
+                requestData.data = {
+                    ...userData,
+                    ...fileMetadata
+                };
+            }
         } else {
-            // 对于非add操作或未选择文件的情况，直接使用用户提供的数据
+            // 对于非add/update操作或未选择文件的情况，直接使用用户提供的数据
             requestData.data = userData;
             
             // 验证是否提供了必要的数据
             if (Object.keys(requestData.data).length === 0) {
-                showMessage('请提供JSON数据或选择文件（对于add操作）', 'error');
+                showMessage(`请提供JSON数据${operation === 'add' ? '或选择文件' : ''}`, 'error');
                 return;
             }
         }
@@ -1038,12 +1239,78 @@ window.testFileTypeApi = async function() {
         console.log('API_BASE_URL配置:', API_BASE_URL);
         console.log('fileType:', fileType);
         console.log('operation:', operation);
+        console.log('audit:', audit);
+        console.log('isdelField:', isdelField);
+        console.log('isdelValue:', isdelValue);
         
         // 检查API URL格式是否正确
         if (!apiUrl.startsWith('http')) {
             console.error('API URL格式错误，缺少协议:', apiUrl);
             showMessage('API URL配置错误，缺少协议', 'error');
             return;
+        }
+        
+        // 添加用户选择的额外参数
+        if (operation === 'check') {
+            // check操作的audit参数
+            requestData.audit = audit;
+        } else if (operation === 'isdel') {
+            // isdel操作的soft_delete_config参数
+            requestData.soft_delete_config = {
+                field: isdelField,
+                value: isdelValue
+            };
+        }
+        
+        // 处理不同操作类型的特殊要求
+        if (operation === 'check') {
+            // check操作：data可以为空，主要使用where_conditions查询
+            // 如果没有提供where_conditions，允许空条件查询所有数据
+            if (!requestData.where_conditions) {
+                requestData.where_conditions = [];
+            }
+        } else if (operation === 'update') {
+            // update操作：需要明确区分where_conditions和要更新的数据
+            // 如果用户只提供了data，引导用户正确使用格式
+            if (!requestData.where_conditions) {
+                // 检查data中是否包含where_conditions字段
+                if (requestData.data.where_conditions) {
+                    // 分离where_conditions和要更新的数据
+                    requestData.where_conditions = requestData.data.where_conditions;
+                    delete requestData.data.where_conditions;
+                } else if (Object.keys(requestData.data).length > 0) {
+                    // 如果没有明确提供where_conditions，使用id作为默认条件
+                    if (requestData.data.id) {
+                        requestData.where_conditions = [{
+                            field: 'id',
+                            operator: '=',
+                            value: requestData.data.id
+                        }];
+                    } else {
+                        showMessage('update操作需要提供where_conditions或包含id字段来指定要更新的记录', 'error');
+                        return;
+                    }
+                }
+            }
+            
+            // 确保有要更新的数据
+            if (Object.keys(requestData.data).length === 0) {
+                showMessage('update操作需要提供data参数来指定要更新的数据', 'error');
+                return;
+            }
+        } else if (operation === 'isdel') {
+            // isdel操作：需要where_conditions来指定要删除的记录
+            if (!requestData.where_conditions && Object.keys(requestData.data).length > 0) {
+                // 如果用户没有提供where_conditions，但提供了data，则使用data中的字段作为条件
+                requestData.where_conditions = Object.keys(requestData.data).map(key => ({
+                    field: key,
+                    operator: '=',
+                    value: requestData.data[key]
+                }));
+            } else if (!requestData.where_conditions) {
+                showMessage('isdel操作需要提供where_conditions来指定要删除的记录', 'error');
+                return;
+            }
         }
         
         // 发送请求
@@ -1072,38 +1339,46 @@ window.testFileTypeApi = async function() {
             }
             
             // 显示结果
-            const resultHtml = `
-                <h3>请求结果</h3>
-                <div style="margin-bottom: 10px;">
-                    <strong>请求URL:</strong> ${apiUrl}
-                </div>
-                <div style="margin-bottom: 10px;">
-                    <strong>请求方法:</strong> POST
-                </div>
-                <div style="margin-bottom: 10px;">
-                    <strong>响应状态:</strong> <span style="color: ${response.ok ? 'green' : 'red'}">${statusText}</span>
-                </div>
-                <div style="margin-bottom: 10px;">
-                    <strong>请求数据:</strong>
-                    <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(requestData, null, 2)}</pre>
-                </div>
-                <div>
-                    <strong>响应数据:</strong>
-                    <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent, null, 2)}</pre>
-                </div>
-            `;
-            
-            resultDiv.innerHTML = resultHtml;
-            resultDiv.style.display = 'block';
-            
-            // 滚动到结果区域
-            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            if (response.ok) {
-                showMessage('API测试成功!', 'success');
-            } else {
-                showMessage('API测试失败!', 'error');
-            }
+        const resultHtml = `
+            <h3>请求结果</h3>
+            <div style="margin-bottom: 10px;">
+                <strong>请求URL:</strong> ${apiUrl}
+            </div>
+            <div style="margin-bottom: 10px;">
+                <strong>请求方法:</strong> POST
+            </div>
+            <div style="margin-bottom: 10px;">
+                <strong>响应状态:</strong> <span style="color: ${response.ok ? 'green' : 'red'}">${statusText}</span>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <strong>请求数据:</strong>
+                <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(requestData, null, 2)}</pre>
+            </div>
+            <div>
+                <strong>响应数据:</strong>
+                <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent, null, 2)}</pre>
+            </div>
+        `;
+        
+        resultDiv.innerHTML = resultHtml;
+        resultDiv.style.display = 'block';
+        
+        // 处理check操作的结果，显示可选择的记录列表
+        if (response.ok && operation === 'check' && typeof resultContent === 'object' && resultContent.success && resultContent.data) {
+            displayCheckResults(resultContent.data);
+        } else {
+            // 隐藏check结果区域
+            document.getElementById('checkResults').style.display = 'none';
+        }
+        
+        // 滚动到结果区域
+        resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        if (response.ok) {
+            showMessage('API测试成功!', 'success');
+        } else {
+            showMessage('API测试失败!', 'error');
+        }
         } catch (fetchError) {
             console.error('请求发送失败:', fetchError);
             

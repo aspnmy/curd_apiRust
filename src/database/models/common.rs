@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 pub struct CommonRequest {
     /// 操作类型：add, check, update, isdel
     pub operation: String,
-    /// 表名
-    pub table_name: String,
+    /// 文件类型，用于区分不同类型的数据
+    pub file_type: Option<String>,
     /// 操作数据
     pub data: serde_json::Value,
     /// 查询条件

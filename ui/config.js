@@ -3,5 +3,5 @@
 
 const UI_CONFIG = {
     // API基础URL
-    API_BASE_URL: 'http://10.168.3.165:7981/api'
+    API_BASE_URL: 'http://localhost:8000/api'
 };

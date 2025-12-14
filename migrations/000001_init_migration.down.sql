@@ -7,7 +7,7 @@ DROP TRIGGER IF EXISTS update_common_data_trigger ON common_data;
 DROP FUNCTION IF EXISTS update_common_data_timestamps;
 
 -- 删除索引
-DROP INDEX IF EXISTS idx_common_data_table_name;
+DROP INDEX IF EXISTS idx_common_data_file_type;
 DROP INDEX IF EXISTS idx_common_data_is_del;
 DROP INDEX IF EXISTS idx_common_data_is_rols;
 DROP INDEX IF EXISTS idx_common_data_datainfos;

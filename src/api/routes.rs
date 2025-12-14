@@ -99,13 +99,13 @@ pub fn create_router(common_service: Arc<CommonService>, config: AppConfig) -> R
         .route("/check", post(common_handlers::handle_common_request))
         .route("/update", post(common_handlers::handle_common_request))
         .route("/isdel", post(common_handlers::handle_common_request))
-        // 基于file_type的API端点，结构为 /api/common/{file_type}/{add、check、update、isdel}
-        .route("/common/:file_type/add", post(common_handlers::handle_file_type_request))
-        .route("/common/:file_type/check", post(common_handlers::handle_file_type_request))
-        .route("/common/:file_type/update", post(common_handlers::handle_file_type_request))
-        .route("/common/:file_type/isdel", post(common_handlers::handle_file_type_request))
-        // 基于file_type的健康检查端点
-        .route("/common/:file_type/health", get(common_handlers::handle_file_type_health_check));
+        // 基于version的API端点，结构为 /api/common/{version}/{add、check、update、isdel}
+        .route("/:version/add", post(common_handlers::handle_file_type_request))
+        .route("/:version/check", post(common_handlers::handle_file_type_request))
+        .route("/:version/update", post(common_handlers::handle_file_type_request))
+        .route("/:version/isdel", post(common_handlers::handle_file_type_request))
+        // 基于version的健康检查端点
+        .route("/:version/health", get(common_handlers::handle_file_type_health_check));
 
     // 只有在调试模式下才添加日志API
     if config.debug {

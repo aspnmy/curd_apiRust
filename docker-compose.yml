@@ -35,7 +35,7 @@ services:
       # 服务配置
       - SERVICE_ROLE=write                   # 服务角色：read/write/mixed，此处为写入节点
       - SERVICE_ID=crud-write-01             # 服务ID，用于标识不同节点
-      - ALLOWED_TABLES=users,resources,encryption_keys  # 允许操作的表名白名单，逗号分隔
+      - SQL_TABLE=common_data  # 允许操作的表名白名单，逗号分隔
       - RUN_MIGRATIONS=true                  # 是否运行数据库迁移，写入节点需要设置为true
       - MIGRATION_STRATEGY=${MIGRATION_STRATEGY}            # 生产环境使用忽略策略，迁移失败时继续运行
       
@@ -79,7 +79,7 @@ services:
       # 服务配置
       - SERVICE_ROLE=read                    # 服务角色：read/write/mixed，此处为读取节点
       - SERVICE_ID=crud-read-01              # 服务ID，用于标识不同节点
-      - ALLOWED_TABLES=users,resources,encryption_keys  # 允许操作的表名白名单，逗号分隔
+      - SQL_TABLE=users,resources,encryption_keys  # 允许操作的表名白名单，逗号分隔
       - RUN_MIGRATIONS=false                 # 是否运行数据库迁移，读取节点设置为false
       
       # CORS头配置

@@ -1,6 +1,6 @@
 -- 删除添加的索引
-DROP INDEX IF EXISTS idx_common_data_table_name_is_del;
-DROP INDEX IF EXISTS idx_common_data_table_name_created_at;
+DROP INDEX IF EXISTS idx_common_data_file_type_is_del;
+DROP INDEX IF EXISTS idx_common_data_file_type_created_at;
 
 -- 删除部分GIN索引
 DROP INDEX IF EXISTS idx_common_data_datainfos_image;

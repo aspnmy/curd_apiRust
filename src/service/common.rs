@@ -101,13 +101,26 @@ impl CommonService {
         self.validate_service_role(&request.operation)?;
         info!("服务角色验证通过");
 
-        // 验证表名 - 固定使用common_data表，忽略传入的table_name
-        self.validate_table_name("common_data")?;
-        info!("表名验证通过");
+        // 验证表名 - 使用ALLOWED_TABLES中指定的表名，忽略传入的table_name
+        // 注意：前端发送的table_name实际上是file_type，不是真正的数据库表名
+        let allowed_tables = &self.config.allowed_tables;
+        
+        // 确保ALLOWED_TABLES只包含一个表名（单表配置）
+        if allowed_tables.len() != 1 {
+            error!("配置错误：ALLOWED_TABLES必须只包含一个表名，当前配置：{:?}", allowed_tables);
+            return Err(CommonServiceError::InvalidTableName(
+                "ALLOWED_TABLES必须只包含一个表名".to_string()
+            ));
+        }
+        
+        // 获取ALLOWED_TABLES中指定的单表名
+        let table_name = allowed_tables.first().unwrap().clone();
+        self.validate_table_name(&table_name)?;
+        info!("表名验证通过，使用表名：{}", table_name);
 
-        // 覆盖传入的table_name，固定使用common_data
+        // 覆盖传入的table_name，固定使用ALLOWED_TABLES中指定的单表名
         let mut request = request;
-        request.table_name = "common_data".to_string();
+        request.table_name = table_name;
 
         let result = match request.operation.as_str() {
             "add" => self.add(request).await,
@@ -169,9 +182,13 @@ impl CommonService {
             }
         }
 
-        // 生成SQL语句 - 使用通用表结构
+        // 获取配置中的表名
+        let sql_table = self.config.allowed_tables.first().unwrap();
+        
+        // 生成SQL语句 - 使用配置中的表名
         let sql = format!(
-            "INSERT INTO common_data (table_name, datainfos) VALUES ($1, $2) RETURNING *"
+            "INSERT INTO {} (file_type, datainfos) VALUES ($1, $2) RETURNING *",
+            sql_table
         );
 
         info!("生成的SQL语句: {}", sql);
@@ -216,11 +233,14 @@ impl CommonService {
         // 构建WHERE子句
         let (mut where_clause, mut where_params, has_is_del_condition) = self.build_where_clause(&request.where_conditions)?;
         
-        // 添加逻辑表名条件
+        // 获取配置中的表名
+        let sql_table = self.config.allowed_tables.first().unwrap();
+        
+        // 添加逻辑表名条件 - 使用file_type字段
         if where_clause.is_empty() {
-            where_clause = "WHERE table_name = $1".to_string();
+            where_clause = "WHERE file_type = $1".to_string();
         } else {
-            where_clause = format!("{} AND table_name = ${}", where_clause, where_params.len() + 1);
+            where_clause = format!("{} AND file_type = ${}", where_clause, where_params.len() + 1);
         }
         where_params.push(JsonValue::String(request.table_name.clone()));
         
@@ -231,10 +251,10 @@ impl CommonService {
             where_params.push(JsonValue::Bool(false));
         }
 
-        // 生成SQL语句 - 使用通用表结构
+        // 生成SQL语句 - 使用配置中的表名
         let sql = format!(
-            "SELECT {} FROM common_data {}",
-            fields_str, where_clause
+            "SELECT {} FROM {} {}",
+            fields_str, sql_table, where_clause
         );
 
         info!("生成的SQL语句: {}", sql);
@@ -274,24 +294,27 @@ impl CommonService {
     async fn update(&self, request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
         info!(
             "执行更新操作，逻辑表名: {}, 数据: {:?}, 条件: {:?}",
-            request.table_name, request.data, request.where_conditions
+            request.table_name, request.data, request.where_conditions    
         );
 
         // 构建WHERE子句
         let (mut where_clause, mut where_params, _) = self.build_where_clause(&request.where_conditions)?;
         
-        // 添加逻辑表名条件
+        // 获取配置中的表名
+        let sql_table = self.config.allowed_tables.first().unwrap();
+        
+        // 添加逻辑表名条件 - 使用file_type字段
         if where_clause.is_empty() {
-            where_clause = "WHERE table_name = $1".to_string();
+            where_clause = "WHERE file_type = $1".to_string();
         } else {
-            where_clause = format!("{} AND table_name = ${}", where_clause, where_params.len() + 1);
+            where_clause = format!("{} AND file_type = ${}", where_clause, where_params.len() + 1);
         }
         where_params.push(JsonValue::String(request.table_name.clone()));
 
-        // 生成SQL语句 - 使用通用表结构
+        // 生成SQL语句 - 使用配置中的表名
         let sql = format!(
-            "UPDATE common_data SET datainfos = $1 {} RETURNING *",
-            where_clause
+            "UPDATE {} SET datainfos = $1 {} RETURNING *",
+            sql_table, where_clause
         );
 
         info!("生成的SQL语句: {}", sql);
@@ -338,7 +361,7 @@ impl CommonService {
     async fn isdel(&self, request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
         info!(
             "执行软删除操作，逻辑表名: {}, 条件: {:?}, 配置: {:?}",
-            request.table_name, request.where_conditions, request.soft_delete_config
+            request.table_name, request.where_conditions, request.soft_delete_config    
         );
 
         // 获取软删除配置
@@ -353,18 +376,21 @@ impl CommonService {
         // 构建WHERE子句
         let (mut where_clause, mut where_params, _) = self.build_where_clause(&request.where_conditions)?;
         
-        // 添加逻辑表名条件
+        // 获取配置中的表名
+        let sql_table = self.config.allowed_tables.first().unwrap();
+        
+        // 添加逻辑表名条件 - 使用file_type字段
         if where_clause.is_empty() {
-            where_clause = "WHERE table_name = $1".to_string();
+            where_clause = "WHERE file_type = $1".to_string();
         } else {
-            where_clause = format!("{} AND table_name = ${}", where_clause, where_params.len() + 1);
+            where_clause = format!("{} AND file_type = ${}", where_clause, where_params.len() + 1);
         }
         where_params.push(JsonValue::String(request.table_name.clone()));
 
-        // 生成SQL语句（使用参数化查询）- 使用通用表结构
+        // 生成SQL语句（使用参数化查询）- 使用配置中的表名
         let sql = format!(
-            "UPDATE common_data SET {} = $1 {} RETURNING *",
-            soft_delete_config.field, where_clause
+            "UPDATE {} SET {} = $1 {} RETURNING *",
+            sql_table, soft_delete_config.field, where_clause
         );
 
         info!("生成的SQL语句: {}", sql);
@@ -424,7 +450,7 @@ impl CommonService {
                     }
 
                     // 对于JSONB字段，使用 ->> 操作符进行查询
-                    let field_expr = if cond.field == "id" || cond.field == "table_name" || cond.field == "is_rols" || cond.field == "is_del" || cond.field == "is_date" || cond.field == "created_at" || cond.field == "updated_at" {
+                    let field_expr = if cond.field == "id" || cond.field == "file_type" || cond.field == "is_rols" || cond.field == "is_del" || cond.field == "is_date" || cond.field == "created_at" || cond.field == "updated_at" {
                         // 对于普通字段，直接使用字段名
                         cond.field.to_string()
                     } else {

@@ -88,9 +88,22 @@ impl AppConfig {
     /// 从环境变量加载配置
     pub fn from_env() -> Result<Self> {
         info!("从环境变量加载配置");
+        
+        // 从环境变量获取版本号
+        let version = env::var("API_VERSION").unwrap_or("v1".to_string());
+        info!("当前API版本: {}", version);
+        
+        // 尝试加载对应版本的配置文件
+        let config_file = format!("{}_api.cfg", version);
+        info!("尝试加载配置文件: {}", config_file);
+        
+        // 使用dotenvy加载指定版本的配置文件
+        if let Err(e) = dotenvy::from_filename(&config_file) {
+            info!("无法加载配置文件 {}，将使用默认配置或环境变量: {:?}", config_file, e);
+        }
 
         // 从环境变量读取允许的表名，支持逗号分隔的字符串
-        let allowed_tables = env::var("ALLOWED_TABLES")
+        let allowed_tables = env::var("SQL_TABLE")
             .unwrap_or("users,resources,encryption_keys".to_string())
             .split(',')
             .map(|table| table.trim().to_string())

@@ -530,7 +530,7 @@ API服务通过环境变量进行配置，主要配置项包括：
 | `DATABASE_URL` | 数据库连接URL | `postgres://user:password@localhost:5432/secret_gallery` |
 | `SERVICE_ROLE` | 服务角色 | `mixed` |
 | `SERVICE_ID` | 服务ID | `crud-01` |
-| `ALLOWED_TABLES` | 允许操作的逻辑表名白名单 | `users,resources,encryption_keys` |
+| `SQL_TABLE` | 允许操作的逻辑表名白名单 | `users,resources,encryption_keys` |
 | `RUN_MIGRATIONS` | 是否运行数据库迁移 | `true` |
 | `MIGRATION_STRATEGY` | 数据库迁移策略 | `strict` |
 
@@ -646,7 +646,7 @@ services:
       - SERVICE_ROLE=write
       - SERVICE_ID=crud-write-01
       - DATABASE_URL=${DATABASE_URL}
-      - ALLOWED_TABLES=users,resources,encryption_keys
+      - SQL_TABLE=users,resources,encryption_keys
       - RUN_MIGRATIONS=true
       - MIGRATION_STRATEGY=ignore
     ports:
@@ -660,7 +660,7 @@ services:
       - SERVICE_ROLE=read
       - SERVICE_ID=crud-read-01
       - DATABASE_URL=${DATABASE_URL}
-      - ALLOWED_TABLES=users,resources,encryption_keys
+      - SQL_TABLE=users,resources,encryption_keys
       - RUN_MIGRATIONS=false
     ports:
       - "7982:8000"
@@ -734,7 +734,7 @@ API设计遵循RESTful原则，提供了简洁易用的接口，支持批量操�
 | `ENCRYPTION_ITERATIONS` | 迭代次数 | `100000` | 否 |
 | `SERVICE_ROLE` | 服务角色 | `mixed` | 否 |
 | `SERVICE_ID` | 服务ID | `crud-01` | 否 |
-| `ALLOWED_TABLES` | 允许操作的逻辑表名白名单 | `users,resources,encryption_keys` | 否 |
+| `SQL_TABLE` | 允许操作的逻辑表名白名单 | `users,resources,encryption_keys` | 否 |
 | `RUN_MIGRATIONS` | 是否运行数据库迁移 | `true` | 否 |
 | `MIGRATION_STRATEGY` | 数据库迁移策略 | `strict` | 否 |
 

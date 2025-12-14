@@ -157,51 +157,51 @@ pub async fn get_logs(
     }
 }
 
-/// 处理基于file_type的API请求
-/// 路径结构: /api/common/{file_type}/{add、check、update、isdel}
+/// 处理基于version的API请求
+/// 路径结构: /api/{version}/{add、check、update、isdel}
 pub async fn handle_file_type_request(
     Extension(common_service): Extension<Arc<CommonService>>,
-    Path(params): Path<(String, String)>, // (file_type, operation)
+    Path(params): Path<(String, String)>, // (version, operation)
     Json(mut request): Json<CommonRequest>,
 ) -> (StatusCode, Json<CommonResponse>) {
-    // 从路径参数中提取file_type和operation
-    let (file_type, operation) = params;
+    // 从路径参数中提取version和operation
+    let (version, operation) = params;
     
     // 记录请求信息
-    info!("接收基于file_type的请求 - file_type: {}, operation: {}, 服务ID: {}", 
-        file_type, operation, common_service.config.service.id);
+    info!("接收基于version的请求 - version: {}, operation: {}, 服务ID: {}", 
+        version, operation, common_service.config.service.id);
     debug!("请求详情: {:?}", request);
     
     // 设置请求的操作类型
-    request.operation = operation.clone();
+    request.operation = operation.clone();    
+
     
-    // 所有数据都写在common_data表中
-    request.table_name = "common_data".to_string();
-    
-    // 在data中添加file_type字段，用于区分不同类型的文件
+    // 在data中添加version字段，用于记录API版本
     if let serde_json::Value::Object(ref mut obj) = request.data {
-        // 添加file_type字段
-        obj.insert("file_type".to_string(), serde_json::Value::String(file_type.clone()));
+        // 添加version字段
+        obj.insert("version".to_string(), serde_json::Value::String(version.clone()));
         
         // 处理img2dicom类型的特殊要求
-        if file_type == "img2dicom" {
-            // 根据img2dicom.rule.md要求，添加必要的字段
-            // 这些字段将在服务层或转换方法中被填充
-            // image_content: 上传的image文件的base64编码后的内容
-            // dicom_path: 转换后的dicom文件的路径
-            // dicom_content: dicom文件base64编码后的内容
-            
-            // 确保这些字段存在，即使它们的值是空的
-            if !obj.contains_key("image_content") {
-                obj.insert("image_content".to_string(), serde_json::Value::String("".to_string()));
-            }
-            
-            if !obj.contains_key("dicom_path") {
-                obj.insert("dicom_path".to_string(), serde_json::Value::String("".to_string()));
-            }
-            
-            if !obj.contains_key("dicom_content") {
-                obj.insert("dicom_content".to_string(), serde_json::Value::String("".to_string()));
+        if let Some(serde_json::Value::String(file_type)) = obj.get("file_type") {
+            if file_type == "img2dicom" {
+                // 根据img2dicom.rule.md要求，添加必要的字段
+                // 这些字段将在服务层或转换方法中被填充
+                // image_content: 上传的image文件的base64编码后的内容
+                // dicom_path: 转换后的dicom文件的路径
+                // dicom_content: dicom文件base64编码后的内容
+                
+                // 确保这些字段存在，即使它们的值是空的
+                if !obj.contains_key("image_content") {
+                    obj.insert("image_content".to_string(), serde_json::Value::String("".to_string()));
+                }
+                
+                if !obj.contains_key("dicom_path") {
+                    obj.insert("dicom_path".to_string(), serde_json::Value::String("".to_string()));
+                }
+                
+                if !obj.contains_key("dicom_content") {
+                    obj.insert("dicom_content".to_string(), serde_json::Value::String("".to_string()));
+                }
             }
         }
     }
@@ -211,7 +211,7 @@ pub async fn handle_file_type_request(
 }
 
 /// 处理基于file_type的健康检查请求
-/// 路径结构: /api/common/{file_type}/health
+/// 路径结构: /api/{version}/health
 pub async fn handle_file_type_health_check(
     Extension(common_service): Extension<Arc<CommonService>>,
     Path(file_type): Path<String>,

@@ -45,7 +45,7 @@ docker run -d \
   -e SERVICE_ROLE=write \
   -e SERVICE_ID=crud-write-01 \
   -e DATABASE_URL=postgres://user:password@postgres:5432/secret_gallery \
-  -e ALLOWED_TABLES=users,resources,encryption_keys \
+  -e SQL_TABLE=users,resources,encryption_keys \
   -e RUN_MIGRATIONS=true \
   -e MIGRATION_STRATEGY=ignore \
   ghcr.io/aspnmy/curd_apirust:latest
@@ -57,7 +57,7 @@ docker run -d \
   -e SERVICE_ROLE=read \
   -e SERVICE_ID=crud-read-01 \
   -e DATABASE_URL=postgres://user:password@postgres:5432/secret_gallery \
-  -e ALLOWED_TABLES=users,resources \
+  -e SQL_TABLE=users,resources \
   -e RUN_MIGRATIONS=false \
   ghcr.io/aspnmy/curd_apirust:latest
 ```
@@ -96,7 +96,7 @@ services:
       # 服务配置
       - SERVICE_ROLE=write
       - SERVICE_ID=crud-write-01
-      - ALLOWED_TABLES=users,resources,encryption_keys
+      - SQL_TABLE=users,resources,encryption_keys
       - RUN_MIGRATIONS=true
       - MIGRATION_STRATEGY=${MIGRATION_STRATEGY}
       
@@ -132,7 +132,7 @@ services:
       # 服务配置
       - SERVICE_ROLE=read
       - SERVICE_ID=crud-read-01
-      - ALLOWED_TABLES=users,resources,encryption_keys
+      - SQL_TABLE=users,resources,encryption_keys
       - RUN_MIGRATIONS=false
       
     ports:
@@ -174,7 +174,7 @@ docker-compose up -d
 | `ENCRYPTION_ITERATIONS` | 迭代次数 | `100000` |
 | `SERVICE_ROLE` | 服务角色（read/write/mixed） | `mixed` |
 | `SERVICE_ID` | 服务 ID | `crud-01` |
-| `ALLOWED_TABLES` | 允许操作的逻辑表名白名单，逗号分隔 | `users,resources,encryption_keys` |
+| `SQL_TABLE` | 允许操作的逻辑表名白名单，逗号分隔 | `users,resources,encryption_keys` |
 | `RUN_MIGRATIONS` | 是否运行数据库迁移 | `true` |
 | `MIGRATION_STRATEGY` | 数据库迁移策略，可选值：repair（修复）、ignore（忽略）、strict（严格） | `strict` |
 

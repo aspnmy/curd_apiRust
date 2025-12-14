@@ -102,7 +102,7 @@ async function uploadImage() {
         
         // 构造请求数据（符合服务器期望的格式和datainfos规则）
         const requestData = {
-            table_name: 'resources',
+            file_type: 'resources',
             operation: 'add',
             data: {
                 file_id: fileId,
@@ -119,8 +119,8 @@ async function uploadImage() {
             }
         };
         
-        // 发送请求
-        const response = await fetch(`${API_BASE_URL}/add`, {
+        // 发送请求 - 使用v1版本
+        const response = await fetch(`${API_BASE_URL}/v1/add`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -259,7 +259,7 @@ async function loadImages() {
         // 构造请求数据（符合服务器期望的格式）
         const showAll = document.getElementById('showAllCheckbox').checked;
         const requestData = {
-            table_name: 'resources',  // 修正字段名
+            file_type: 'resources',  // 修正字段名
             operation: 'check',       // 修正字段名
             data: {},                 // 重要：data字段是必填的，不能为空
             where_conditions: showAll ? null : [  // 修正格式，showAll为true时设置为null
@@ -272,8 +272,8 @@ async function loadImages() {
             audit: false
         };
         
-        // 发送请求
-        const response = await fetch(`${API_BASE_URL}/check`, {
+        // 发送请求 - 使用v1版本
+        const response = await fetch(`${API_BASE_URL}/v1/check`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -344,8 +344,8 @@ async function searchImages() {
             audit: false
         };
         
-        // 发送请求
-        const response = await fetch(`${API_BASE_URL}/check`, {
+        // 发送请求 - 使用v1版本
+        const response = await fetch(`${API_BASE_URL}/v1/check`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -449,8 +449,8 @@ async function showImageDetail(id) {
             audit: true
         };
         
-        // 发送请求
-        const response = await fetch(`${API_BASE_URL}/check`, {
+        // 发送请求 - 使用v1版本
+        const response = await fetch(`${API_BASE_URL}/v1/check`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -562,7 +562,7 @@ async function editImage(id) {
             audit: true
         };
         
-        const response = await fetch(`${API_BASE_URL}/check`, {
+        const response = await fetch(`${API_BASE_URL}/v1/check`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -689,8 +689,8 @@ async function saveImageChanges() {
             data: update_data
         };
         
-        // 发送请求
-        const response = await fetch(`${API_BASE_URL}/update`, {
+        // 发送请求 - 使用v1版本
+        const response = await fetch(`${API_BASE_URL}/v1/update`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -757,8 +757,8 @@ async function deleteImage(id, isDeleted) {
             }
         };
         
-        // 发送请求
-        const response = await fetch(`${API_BASE_URL}/isdel`, {
+        // 发送请求 - 使用v1版本
+        const response = await fetch(`${API_BASE_URL}/v1/isdel`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -882,13 +882,13 @@ window.testAddData = async function() {
         
         // 构造请求数据
         const requestData = {
-            table_name: tableName,
+            file_type: tableName,
             operation: 'add',
             data: processedData
         };
         
-        // 发送请求
-        const response = await fetch(`${API_BASE_URL}/add`, {
+        // 发送请求 - 使用v1版本
+        const response = await fetch(`${API_BASE_URL}/v1/add`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -949,7 +949,7 @@ window.testFileTypeApi = async function() {
         
         // 初始化请求数据
         let requestData = {
-            table_name: fileType, 
+            file_type: fileType, 
             operation: operation,
             data: {}
         };
@@ -1032,8 +1032,8 @@ window.testFileTypeApi = async function() {
             }
         }
         
-        // 构建API URL，格式：/api/common/{file_type}/{operation}
-        const apiUrl = `${API_BASE_URL}/common/${fileType}/${operation}`;
+        // 构建API URL，格式：/api/{version}/{operation}
+        const apiUrl = `${API_BASE_URL}/v1/${operation}`;
         console.log('构建的API URL:', apiUrl);
         console.log('API_BASE_URL配置:', API_BASE_URL);
         console.log('fileType:', fileType);

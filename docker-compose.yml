@@ -51,7 +51,7 @@ services:
       - "7981:8000"                         # 端口映射：主机端口:容器端口
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
     networks:
-      - curd_api_rust                  
+      - curd_api_rust_network
     volumes:
       - write_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化
       - image2dicom_path:/app/image2dicom
@@ -104,7 +104,7 @@ services:
 
     restart: unless-stopped   # 重启策略：除非手动停止，否则自动重启
     networks:
-      - curd_api_rust                  
+      - curd_api_rust_network                  
     volumes:
       - read_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化
       - image2dicom_path:/app/image2dicom
@@ -124,7 +124,7 @@ services:
       - api-write                          # 依赖写入节点
       - api-read                           # 依赖读取节点
     networks:
-      - curd_api_rust                            # 使用默认网络，与后端服务在同一个network中
+      - curd_api_rust_network                            # 使用默认网络，与后端服务在同一个network中
     volumes:
       - ui_data:/usr/share/caddy            # 挂载UI数据目录到主机，实现数据持久化
 
@@ -135,5 +135,4 @@ volumes:
   ui_data:                                # 定义UI数据目录的卷，用于UI数据持久化
 
 networks:
-  curd_api_rust:                                # 定义默认网络，用于连接后端服务和前端UI
-    driver: bridge                        # 使用桥接网络驱动，实现容器间通信
+  curd_api_rust_network:                                # 定义默认网络，用于连接后端服务和前端UI

@@ -13,7 +13,10 @@ services:
       - SERVER_HOST=0.0.0.0                # 服务器监听地址，默认0.0.0.0
       - SERVER_PORT=8000                     # 服务器监听端口，默认8000
       - HTTPS=false                          # 是否启用HTTPS，默认false
-      
+      # debug模式
+      - DEBUG=true
+      - LOG_PATH=/app/logs/crud-api
+
       # 数据库配置
       - DATABASE_URL=${DATABASE_URL}         # 数据库连接URL，从环境变量获取
       - DATABASE_MAX_CONNECTIONS=30           # 数据库最大连接数，默认10
@@ -41,7 +44,10 @@ services:
     ports:
       - "7981:8000"                         # 端口映射：主机端口:容器端口
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
-  
+    volumes:
+      - write_logs:/app/logs                # 挂载日志目录到主机，实现日志持久化
+
+
   # 读取节点 - 负责处理读操作
   api-read:
     container_name: curd_api_rust_read
@@ -51,6 +57,9 @@ services:
       - SERVER_HOST=0.0.0.0                # 服务器监听地址，默认0.0.0.0
       - SERVER_PORT=8000                     # 服务器监听端口，默认8000
       - HTTPS=false                          # 是否启用HTTPS，默认false
+      # debug模式
+      - DEBUG=true
+      - LOG_PATH=/app/logs/crud-api
       
       # 数据库配置
       - DATABASE_URL=${DATABASE_URL}         # 数据库连接URL，从环境变量获取
@@ -79,3 +88,9 @@ services:
     ports:
       - "7982:8000"                         # 端口映射：主机端口:容器端口
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
+    volumes:
+      - read_logs:/app/logs                # 挂载日志目录到主机，实现日志持久化
+
+volumes:
+  write_logs:                              # 定义写入节点日志目录的卷，用于日志持久化
+  read_logs:                              # 定义读取节点日志目录的卷，用于日志持久化

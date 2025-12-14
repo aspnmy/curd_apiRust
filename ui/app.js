@@ -72,10 +72,10 @@ async function uploadImage() {
         // 将图片转换为Base64
         const base64Image = await fileToBase64(file);
         
-        // 构造请求数据
+        // 构造请求数据（符合服务器期望的格式）
         const requestData = {
-            table: 'resources',
-            action: 'add',
+            table_name: 'resources',
+            operation: 'add',
             data: {
                 file_name: file.name,
                 file_type: file.type,
@@ -136,16 +136,21 @@ async function loadImages() {
         const imageList = document.getElementById('imageList');
         imageList.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="loading"></div> 正在加载图片...</div>';
         
-        // 构造请求数据
+        // 构造请求数据（符合服务器期望的格式）
         const showAll = document.getElementById('showAllCheckbox').checked;
         const requestData = {
-            table: 'resources',
-            action: 'check',
-            data: {
-                conditions: showAll ? {} : { deleted: false },
-                limit: 100,
-                offset: 0
-            }
+            table_name: 'resources',  // 修正字段名
+            operation: 'check',       // 修正字段名
+            data: {},                 // 重要：data字段是必填的，不能为空
+            where_conditions: showAll ? [] : [  // 修正格式
+                { 
+                    field: 'deleted', 
+                    operator: '=', 
+                    value: false 
+                }
+            ],
+            fields: null,
+            audit: false
         };
         
         // 发送请求
@@ -164,7 +169,7 @@ async function loadImages() {
         const result = await response.json();
         
         if (result.success) {
-            renderImageList(result.data.items || []);
+            renderImageList(result.data || []);
         } else {
             throw new Error(result.message || '加载失败');
         }
@@ -190,22 +195,35 @@ async function searchImages() {
         const imageList = document.getElementById('imageList');
         imageList.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="loading"></div> 正在搜索图片...</div>';
         
-        // 构造请求数据
+        // 构造请求数据（符合服务器期望的格式）
         const showAll = document.getElementById('showAllCheckbox').checked;
+        
+        // 构建条件数组
+        let where_conditions = [];
+        
+        // 添加删除状态条件
+        if (!showAll) {
+            where_conditions.push({
+                field: 'deleted',
+                operator: '=',
+                value: false
+            });
+        }
+        
+        // 添加搜索条件
+        where_conditions.push({
+            field: 'file_name',
+            operator: 'LIKE',
+            value: `%${keyword}%`
+        });
+        
         const requestData = {
-            table: 'resources',
-            action: 'check',
-            data: {
-                conditions: {
-                    ...(showAll ? {} : { deleted: false }),
-                    $or: [
-                        { file_name: { $like: `%${keyword}%` } },
-                        { description: { $like: `%${keyword}%` } }
-                    ]
-                },
-                limit: 100,
-                offset: 0
-            }
+            table_name: 'resources',
+            operation: 'check',
+            data: {},                 // 重要：data字段是必填的，不能为空
+            where_conditions: where_conditions,
+            fields: null,
+            audit: false
         };
         
         // 发送请求
@@ -224,7 +242,7 @@ async function searchImages() {
         const result = await response.json();
         
         if (result.success) {
-            renderImageList(result.data.items || []);
+            renderImageList(result.data || []);
         } else {
             throw new Error(result.message || '搜索失败');
         }
@@ -292,14 +310,20 @@ async function showImageDetail(id) {
         imageDetail.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="loading"></div> 正在加载详情...</div>';
         detailSection.style.display = 'block';
         
-        // 构造请求数据
+        // 构造请求数据（符合服务器期望的格式）
         const requestData = {
-            table: 'resources',
-            action: 'check',
-            data: {
-                conditions: { id: id },
-                limit: 1
-            }
+            table_name: 'resources',
+            operation: 'check',
+            data: {},                 // 重要：data字段是必填的，不能为空
+            where_conditions: [
+                {
+                    field: 'id',
+                    operator: '=',
+                    value: id
+                }
+            ],
+            fields: null,
+            audit: true
         };
         
         // 发送请求
@@ -317,8 +341,8 @@ async function showImageDetail(id) {
         
         const result = await response.json();
         
-        if (result.success && result.data.items && result.data.items.length > 0) {
-            const image = result.data.items[0];
+        if (result.success && result.data && result.data.length > 0) {
+            const image = result.data[0];
             renderImageDetail(image);
         } else {
             throw new Error(result.message || '未找到图片详情');
@@ -394,14 +418,20 @@ async function editImage(id) {
         editForm.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="loading"></div> 正在加载编辑表单...</div>';
         editSection.style.display = 'block';
         
-        // 获取图片详情
+        // 获取图片详情（符合服务器期望的格式）
         const requestData = {
-            table: 'resources',
-            action: 'check',
-            data: {
-                conditions: { id: id },
-                limit: 1
-            }
+            table_name: 'resources',
+            operation: 'check',
+            data: {},                 // 重要：data字段是必填的，不能为空
+            where_conditions: [
+                {
+                    field: 'id',
+                    operator: '=',
+                    value: id
+                }
+            ],
+            fields: null,
+            audit: true
         };
         
         const response = await fetch(`${API_BASE_URL}/check`, {
@@ -418,8 +448,8 @@ async function editImage(id) {
         
         const result = await response.json();
         
-        if (result.success && result.data.items && result.data.items.length > 0) {
-            const image = result.data.items[0];
+        if (result.success && result.data && result.data.length > 0) {
+            const image = result.data[0];
             renderEditForm(image);
         } else {
             throw new Error(result.message || '未找到图片详情');
@@ -471,43 +501,50 @@ async function saveImageChanges() {
         showMessage('未选择要修改的图片', 'error');
         return;
     }
-
+    
     try {
         const editFileName = document.getElementById('editFileName').value.trim();
         const editFileType = document.getElementById('editFileType').value.trim();
         const editDescription = document.getElementById('editDescription').value.trim();
         const editContent = document.getElementById('editContent').files[0];
-
+        
         // 验证必填项
         if (!editFileName) {
             showMessage('文件名称不能为空', 'error');
             return;
         }
-
+        
         // 显示加载状态
         showMessage('正在保存修改...', 'info');
-
-        // 构造请求数据
+        
+        // 构造请求数据（符合服务器期望的格式）
         let content = null;
         if (editContent) {
             content = await fileToBase64(editContent);
         }
-
-        const requestData = {
-            table: 'resources',
-            action: 'update',
-            data: {
-                conditions: { id: currentImageId },
-                update_data: {
-                    file_name: editFileName,
-                    file_type: editFileType || undefined,
-                    description: editDescription || undefined,
-                    content: content || undefined,
-                    updated_at: new Date().toISOString()
-                }
-            }
+        
+        // 构建更新数据
+        const update_data = {
+            file_name: editFileName,
+            file_type: editFileType || undefined,
+            description: editDescription || undefined,
+            content: content || undefined,
+            updated_at: new Date().toISOString()
         };
-
+        
+        const requestData = {
+            table_name: 'resources',
+            operation: 'update',
+            where_conditions: [
+                {
+                    field: 'id',
+                    operator: '=',
+                    value: currentImageId
+                }
+            ],
+            data: update_data
+        };
+        
         // 发送请求
         const response = await fetch(`${API_BASE_URL}/update`, {
             method: 'POST',
@@ -516,13 +553,13 @@ async function saveImageChanges() {
             },
             body: JSON.stringify(requestData)
         });
-
+        
         if (!response.ok) {
             throw new Error(`HTTP错误! 状态: ${response.status}`);
         }
-
+        
         const result = await response.json();
-
+        
         if (result.success) {
             showMessage('图片修改成功!', 'success');
             cancelEdit();
@@ -554,29 +591,39 @@ async function deleteImage(id, isDeleted) {
         // 显示加载状态
         showMessage(`正在${isDeleted ? '永久删除' : '标记删除'}图片...`, 'info');
         
-        // 构造请求数据
+        // 构造请求数据（符合服务器期望的格式）
         let requestData;
         
         if (isDeleted) {
             // 真实删除
             requestData = {
-                table: 'resources',
-                action: 'delete',
-                data: {
-                    conditions: { id: id }
-                }
+                table_name: 'resources',
+                operation: 'delete',
+                data: {},                 // 重要：data字段是必填的，不能为空
+                where_conditions: [
+                    {
+                        field: 'id',
+                        operator: '=',
+                        value: id
+                    }
+                ]
             };
         } else {
             // 标记删除
             requestData = {
-                table: 'resources',
-                action: 'isdel',
-                data: {
-                    conditions: { id: id },
-                    update_data: {
-                        deleted: true,
-                        deleted_at: new Date().toISOString()
+                table_name: 'resources',
+                operation: 'isdel',
+                data: {},                 // 重要：data字段是必填的，不能为空
+                where_conditions: [
+                    {
+                        field: 'id',
+                        operator: '=',
+                        value: id
                     }
+                ],
+                soft_delete_config: {
+                    field: 'is_del',
+                    value: 'true'
                 }
             };
         }

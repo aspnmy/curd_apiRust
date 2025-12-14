@@ -3,7 +3,7 @@ use chrono::Utc;
 use serde_json::Value as JsonValue;
 use sqlx::{Column, Postgres, Row, query};
 use thiserror::Error;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::config::AppConfig;
 use crate::database::DatabasePool;
@@ -93,19 +93,30 @@ impl CommonService {
         &self,
         request: CommonRequest,
     ) -> Result<CommonResponse, CommonServiceError> {
+        info!("执行通用操作 - 操作类型: {}, 表名: {}", 
+            request.operation, request.table_name);
+        debug!("请求详情: {:?}", request);
+        
         // 验证服务角色
         self.validate_service_role(&request.operation)?;
+        info!("服务角色验证通过");
 
         // 验证表名
         self.validate_table_name(&request.table_name)?;
+        info!("表名验证通过");
 
-        match request.operation.as_str() {
+        let result = match request.operation.as_str() {
             "add" => self.add(request).await,
             "check" => self.check(request).await,
             "update" => self.update(request).await,
             "isdel" => self.isdel(request).await,
             _ => Err(CommonServiceError::InvalidOperation(request.operation)),
-        }
+        };
+        
+        info!("通用操作执行完成 - 结果: {}", 
+            if result.is_ok() { "成功" } else { "失败" });
+        
+        result
     }
 
     /// 添加记录

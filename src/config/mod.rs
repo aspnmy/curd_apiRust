@@ -21,6 +21,10 @@ pub struct AppConfig {
     pub allowed_tables: Vec<String>,
     /// 允许的CORS头
     pub cors_allow_headers: String,
+    /// 是否启用调试模式
+    pub debug: bool,
+    /// 日志保存路径
+    pub log_path: String,
 }
 
 /// 服务器配置
@@ -136,6 +140,8 @@ impl AppConfig {
             },
             allowed_tables,
             cors_allow_headers: env::var("CORS_ALLOW_HEADERS").unwrap_or("*".to_string()),
+            debug: env::var("DEBUG").unwrap_or("false".to_string()).parse()?,
+            log_path: env::var("LOG_PATH").unwrap_or("./logs".to_string()),
         };
 
         Ok(config)

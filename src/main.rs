@@ -1,9 +1,12 @@
+use std::fs::OpenOptions;
 use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 
 use axum::serve;
 use dotenvy::dotenv;
 use tracing::info;
+use tracing_subscriber::{fmt, layer::{Layer, SubscriberExt}, util::SubscriberInitExt, filter::LevelFilter};
 
 use crate::api::routes::create_router;
 use crate::config::AppConfig;
@@ -15,17 +18,60 @@ mod config;
 mod database;
 mod service;
 
+/// 设置日志配置
+fn setup_logging(config: &AppConfig) {
+    // 创建日志目录
+    let log_dir = Path::new(&config.log_path);
+    if !log_dir.exists() {
+        std::fs::create_dir_all(log_dir).expect("无法创建日志目录");
+    }
+
+    // 设置日志级别
+    let log_level = if config.debug {
+        LevelFilter::DEBUG
+    } else {
+        LevelFilter::INFO
+    };
+
+    // 创建日志文件
+    let log_file_path = log_dir.join("app.log");
+    let log_file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(log_file_path)
+        .expect("无法打开日志文件");
+
+    // 配置日志格式
+    let file_layer = fmt::layer()
+        .with_writer(std::sync::Arc::new(log_file))
+        .with_ansi(false)
+        .with_level(true)
+        .with_target(true);
+
+    let console_layer = fmt::layer()
+        .with_ansi(true)
+        .with_level(true)
+        .with_target(true);
+
+    // 初始化日志
+    tracing_subscriber::registry()
+        .with(file_layer.with_filter(log_level))
+        .with(console_layer.with_filter(log_level))
+        .init();
+}
+
 #[tokio::main]
 async fn main() {
     // 加载环境变量
     dotenv().ok();
 
-    // 初始化日志
-    tracing_subscriber::fmt::init();
-
     // 加载配置
     let config = AppConfig::from_env().expect("无法加载配置");
     config.validate().expect("配置验证失败");
+
+    // 初始化日志
+    setup_logging(&config);
 
     info!("服务配置: {:?}", config);
 

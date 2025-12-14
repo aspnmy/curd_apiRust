@@ -99,12 +99,34 @@ services:
     
     ports:
       - "7982:8000"                         # 端口映射：主机端口:容器端口
+      # ui_port
+      - "7888:80"
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
     volumes:
       - read_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化
       - image2dicom_path:/app/image2dicom
       
+  # # 前端UI服务 - 用于提供前端界面
+  # test_ui:
+  #   container_name: curd_api_rust_ui
+  #   build:
+  #     context: ./ui
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     # 前端配置，可通过环境变量传递给Caddy或前端代码
+  #     - CADDY_HOST=0.0.0.0
+  #     - CADDY_PORT=80
+  #   ports:
+  #     - "8080:80"                         # 端口映射：主机端口:容器端口
+  #   restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
+  #   depends_on:
+  #     - api-write                          # 依赖写入节点
+  #     - api-read                           # 依赖读取节点
+  #   volumes:
+  #     - ui_data:/usr/share/caddy            # 挂载UI数据目录到主机，实现数据持久化
+
 volumes:
   write_logs:                              # 定义写入节点日志目录的卷，用于日志持久化
   read_logs:                              # 定义读取节点日志目录的卷，用于日志持久化
   image2dicom_path:                       # 定义image2dicom路径的卷，用于插件持久化
+  #ui_data:                                # 定义UI数据目录的卷，用于UI数据持久化

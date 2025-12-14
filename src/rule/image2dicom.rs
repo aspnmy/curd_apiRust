@@ -55,7 +55,6 @@ impl Image2DicomPlugin {
         info!("执行图片转DICOM转换，文件名: {}, 文件ID: {}", file_name, file_id);
         
         // 内部实现：生成DICOM格式的数据
-        // 这里使用简单的模拟DICOM数据，实际项目中可以使用Rust DICOM库生成真实DICOM文件
         let dicom_data = self.generate_dicom_data(image_data, file_id, file_name)?;
         
         // 生成DICOM文件路径：{dicom_save_path}/{file_id}_{file_name}.dcm
@@ -76,38 +75,140 @@ impl Image2DicomPlugin {
     /// 生成DICOM格式的数据
     /// 内部实现，不依赖外部服务
     fn generate_dicom_data(&self, image_data: &[u8], file_id: &str, file_name: &str) -> Result<Vec<u8>> {
-        // 简单的DICOM文件头模拟
-        // 实际项目中应该使用Rust DICOM库（如dicom-rs）生成真实DICOM文件
-        let study_uid = format!("STUDY_{}", file_id);
-        let series_uid = format!("SERIES_{}", file_id);
-        let sop_uid = format!("INSTANCE_{}", file_id);
-        let content_date = Utc::now().format("%Y%m%d");
-        let content_time = Utc::now().format("%H%M%S");
-        
-        // 使用单一格式字符串，避免注释和+号连接
-        let dicom_header = format!(
-            "DICM\nTransferSyntaxUID\n1.2.840.10008.1.2.1\nPatientName\n{}\nStudyInstanceUID\n{}\nSeriesInstanceUID\n{}\nSOPInstanceUID\n{}\nSOPClassUID\n1.2.840.10008.5.1.4.1.1.7\nContentDate\n{}\nContentTime\n{}\nInstanceNumber\n1\nRows\n1024\nColumns\n1024\nBitsAllocated\n8\nBitsStored\n8\nHighBit\n7\nPixelRepresentation\n0\nPhotometricInterpretation\nMONOCHROME2\nSamplesPerPixel\n1\nPlanarConfiguration\n0\nPixelData\n",
-            file_name, study_uid, series_uid, sop_uid, content_date, content_time
-        );
-        
-        // 构建完整的DICOM数据
         let mut dicom_data = Vec::new();
         
-        // 添加DICOM文件头
-        dicom_data.extend_from_slice(dicom_header.as_bytes());
+        // 1. DICOM文件格式：128字节preamble + "DICM" + 数据元素
+        let preamble = vec![0u8; 128];
+        dicom_data.extend_from_slice(&preamble);
+        dicom_data.extend_from_slice(b"DICM");
         
-        // 添加像素数据（简单的灰度渐变，实际项目中应该使用真实图片数据）
-        // 这里使用image_data的前1024*1024字节作为示例
-        let pixel_data_len = std::cmp::min(image_data.len(), 1024 * 1024);
-        dicom_data.extend_from_slice(&image_data[0..pixel_data_len]);
+        // 2. 添加文件元信息
+        // 2.1 SOP Class UID (0008,0016)
+        self.write_dicom_element(&mut dicom_data, 0x0008, 0x0016, "UI", "1.2.840.10008.5.1.4.1.1.7")?; // Secondary Capture Image Storage
         
-        // 如果像素数据不足，填充0
-        let expected_len = 1024 * 1024;
-        if pixel_data_len < expected_len {
-            dicom_data.extend_from_slice(&vec![0; expected_len - pixel_data_len]);
+        // 2.2 SOP Instance UID (0008,0018)
+        let sop_instance_uid = format!("1.2.840.10008.1.{}.{}.{}", 
+            Utc::now().timestamp(), 
+            random::<u32>(), 
+            random::<u32>());
+        self.write_dicom_element(&mut dicom_data, 0x0008, 0x0018, "UI", &sop_instance_uid)?;
+        
+        // 2.3 Transfer Syntax UID (0002,0010)
+        let transfer_syntax_uid = "1.2.840.10008.1.2";
+        self.write_dicom_element(&mut dicom_data, 0x0002, 0x0010, "UI", transfer_syntax_uid)?;
+        
+        // 2.4 Patient Name (0010,0010)
+        self.write_dicom_element(&mut dicom_data, 0x0010, 0x0010, "PN", file_name)?;
+        
+        // 2.5 Patient ID (0010,0020)
+        self.write_dicom_element(&mut dicom_data, 0x0010, 0x0020, "LO", file_id)?;
+        
+        // 2.6 Study Instance UID (0020,000D)
+        let study_instance_uid = format!("1.2.840.10008.1.{}.{}", Utc::now().timestamp(), random::<u32>());
+        self.write_dicom_element(&mut dicom_data, 0x0020, 0x000D, "UI", &study_instance_uid)?;
+        
+        // 2.7 Series Instance UID (0020,000E)
+        let series_instance_uid = format!("1.2.840.10008.1.{}.{}.{}", Utc::now().timestamp(), random::<u32>(), random::<u32>());
+        self.write_dicom_element(&mut dicom_data, 0x0020, 0x000E, "UI", &series_instance_uid)?;
+        
+        // 2.8 Content Date (0008,0023)
+        let content_date = Utc::now().format("%Y%m%d").to_string();
+        self.write_dicom_element(&mut dicom_data, 0x0008, 0x0023, "DA", &content_date)?;
+        
+        // 2.9 Content Time (0008,0033)
+        let content_time = Utc::now().format("%H%M%S").to_string();
+        self.write_dicom_element(&mut dicom_data, 0x0008, 0x0033, "TM", &content_time)?;
+        
+        // 2.10 Modality (0008,0060)
+        self.write_dicom_element(&mut dicom_data, 0x0008, 0x0060, "CS", "OT")?; // Other
+        
+        // 2.11 Instance Number (0020,0013)
+        self.write_dicom_element(&mut dicom_data, 0x0020, 0x0013, "IS", "1")?;
+        
+        // 3. 添加图像像素信息
+        // 3.1 Photometric Interpretation (0028,0004)
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0004, "CS", "MONOCHROME2")?;
+        
+        // 3.2 Samples Per Pixel (0028,0002)
+        let samples_per_pixel = 1u16.to_le_bytes();
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0002, "US", &samples_per_pixel)?;
+        
+        // 3.3 Rows (0028,0010) - 假设图像为512x512
+        let rows = 512u16.to_le_bytes();
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0010, "US", &rows)?;
+        
+        // 3.4 Columns (0028,0011) - 假设图像为512x512
+        let columns = 512u16.to_le_bytes();
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0011, "US", &columns)?;
+        
+        // 3.5 Bits Allocated (0028,0100)
+        let bits_allocated = 8u16.to_le_bytes();
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0100, "US", &bits_allocated)?;
+        
+        // 3.6 Bits Stored (0028,0101)
+        let bits_stored = 8u16.to_le_bytes();
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0101, "US", &bits_stored)?;
+        
+        // 3.7 High Bit (0028,0102)
+        let high_bit = 7u16.to_le_bytes();
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0102, "US", &high_bit)?;
+        
+        // 3.8 Pixel Representation (0028,0103)
+        let pixel_representation = 0u16.to_le_bytes();
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0103, "US", &pixel_representation)?; // Unsigned
+        
+        // 3.9 Planar Configuration (0028,0006)
+        let planar_configuration = 0u16.to_le_bytes();
+        self.write_dicom_element(&mut dicom_data, 0x0028, 0x0006, "US", &planar_configuration)?;
+        
+        // 4. 添加像素数据
+        // 创建512x512的灰度图像数据
+        let mut pixel_data = Vec::new();
+        let target_size = 512 * 512;
+        
+        if image_data.len() >= target_size {
+            pixel_data.extend_from_slice(&image_data[0..target_size]);
+        } else {
+            pixel_data.extend_from_slice(image_data);
+            pixel_data.resize(target_size, 0);
         }
         
+        // 写入Pixel Data元素 (7FE0,0010)
+        self.write_dicom_element(&mut dicom_data, 0x7FE0, 0x0010, "OW", &pixel_data)?;
+        
         Ok(dicom_data)
+    }
+    
+    /// 写入DICOM元素到向量中
+    fn write_dicom_element<T: AsRef<[u8]>>(&self, data: &mut Vec<u8>, group: u16, element: u16, vr: &str, value: T) -> Result<()> {
+        let value_bytes = value.as_ref();
+        
+        // 1. 写入组号和元素号（小端字节序）
+        data.extend_from_slice(&group.to_le_bytes());
+        data.extend_from_slice(&element.to_le_bytes());
+        
+        // 2. 写入VR
+        if vr.len() != 2 {
+            return Err(anyhow!("无效的VR: {}", vr));
+        }
+        data.extend_from_slice(vr.as_bytes());
+        
+        // 3. 写入保留字节
+        data.extend_from_slice(&[0, 0]);
+        
+        // 4. 写入值长度（小端字节序）
+        let value_len = value_bytes.len() as u32;
+        data.extend_from_slice(&value_len.to_le_bytes());
+        
+        // 5. 写入值数据
+        data.extend_from_slice(value_bytes);
+        
+        // 6. 如果值长度为奇数，添加填充字节
+        if value_len % 2 != 0 {
+            data.push(0);
+        }
+        
+        Ok(())
     }
     
     /// 从JSON数据中提取图片内容

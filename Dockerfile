@@ -52,7 +52,7 @@ COPY --from=backend-builder /app/target/release/curd_api_rust ./
 COPY --from=caddy-builder /usr/bin/caddy /usr/bin/caddy
 
 # 从Caddy构建阶段复制前端UI文件
-COPY --from=caddy-builder /app/ui ./ui
+COPY --from=caddy-builder /app/ui /usr/share/caddy
 
 # 从Caddy构建阶段复制Caddy配置文件
 COPY --from=caddy-builder /etc/caddy/Caddyfile /etc/caddy/Caddyfile

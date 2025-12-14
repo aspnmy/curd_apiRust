@@ -142,14 +142,13 @@ async function loadImages() {
             table_name: 'resources',  // 修正字段名
             operation: 'check',       // 修正字段名
             data: {},                 // 重要：data字段是必填的，不能为空
-            where_conditions: showAll ? [] : [  // 修正格式
+            where_conditions: showAll ? null : [  // 修正格式，showAll为true时设置为null
                 { 
-                    field: 'deleted', 
+                    field: 'is_del', 
                     operator: '=', 
                     value: false 
                 }
             ],
-            fields: null,
             audit: false
         };
         
@@ -204,7 +203,7 @@ async function searchImages() {
         // 添加删除状态条件
         if (!showAll) {
             where_conditions.push({
-                field: 'deleted',
+                field: 'is_del',
                 operator: '=',
                 value: false
             });
@@ -221,8 +220,7 @@ async function searchImages() {
             table_name: 'resources',
             operation: 'check',
             data: {},                 // 重要：data字段是必填的，不能为空
-            where_conditions: where_conditions,
-            fields: null,
+            where_conditions: where_conditions.length > 0 ? where_conditions : null,
             audit: false
         };
         
@@ -302,6 +300,12 @@ function formatFileSize(bytes) {
 // 显示图片详情
 async function showImageDetail(id) {
     try {
+        // 验证id是否有效
+        if (!id || isNaN(id)) {
+            showMessage('无效的图片ID', 'error');
+            return;
+        }
+        
         currentImageId = id;
         
         // 显示加载状态
@@ -322,7 +326,6 @@ async function showImageDetail(id) {
                     value: id
                 }
             ],
-            fields: null,
             audit: true
         };
         
@@ -410,6 +413,12 @@ function hideImageDetail() {
 // 编辑图片
 async function editImage(id) {
     try {
+        // 验证id是否有效
+        if (!id || isNaN(id)) {
+            showMessage('无效的图片ID', 'error');
+            return;
+        }
+        
         currentImageId = id;
         
         // 显示加载状态
@@ -430,7 +439,6 @@ async function editImage(id) {
                     value: id
                 }
             ],
-            fields: null,
             audit: true
         };
         
@@ -594,42 +602,27 @@ async function deleteImage(id, isDeleted) {
         // 构造请求数据（符合服务器期望的格式）
         let requestData;
         
-        if (isDeleted) {
-            // 真实删除
-            requestData = {
-                table_name: 'resources',
-                operation: 'delete',
-                data: {},                 // 重要：data字段是必填的，不能为空
-                where_conditions: [
-                    {
-                        field: 'id',
-                        operator: '=',
-                        value: id
-                    }
-                ]
-            };
-        } else {
-            // 标记删除
-            requestData = {
-                table_name: 'resources',
-                operation: 'isdel',
-                data: {},                 // 重要：data字段是必填的，不能为空
-                where_conditions: [
-                    {
-                        field: 'id',
-                        operator: '=',
-                        value: id
-                    }
-                ],
-                soft_delete_config: {
-                    field: 'is_del',
-                    value: 'true'
+        // 注意：服务器只支持 'add', 'check', 'update', 'isdel' 四个操作类型
+        // 真实删除和标记删除都使用 'isdel' 操作，通过不同的配置来区分
+        requestData = {
+            table_name: 'resources',
+            operation: 'isdel',
+            data: {},                 // 重要：data字段是必填的，不能为空
+            where_conditions: [
+                {
+                    field: 'id',
+                    operator: '=',
+                    value: id
                 }
-            };
-        }
+            ],
+            soft_delete_config: {
+                field: 'is_del',
+                value: 'true'
+            }
+        };
         
         // 发送请求
-        const response = await fetch(`${API_BASE_URL}/${isDeleted ? 'delete' : 'isdel'}`, {
+        const response = await fetch(`${API_BASE_URL}/isdel`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -675,4 +668,72 @@ function formatDateTime(dateString) {
         minute: '2-digit',
         second: '2-digit'
     });
+}
+
+// 测试数据写入（全局函数）
+window.testAddData = async function() {
+    try {
+        // 获取输入值
+        const tableNameInput = document.getElementById('testTableName');
+        const dataJsonInput = document.getElementById('testDataJson');
+        
+        const tableName = tableNameInput.value.trim();
+        const dataJsonStr = dataJsonInput.value.trim();
+        
+        if (!tableName) {
+            showMessage('请输入表名', 'error');
+            return;
+        }
+        
+        if (!dataJsonStr) {
+            showMessage('请输入JSON数据', 'error');
+            return;
+        }
+        
+        // 解析JSON数据
+        let data;
+        try {
+            data = JSON.parse(dataJsonStr);
+        } catch (parseError) {
+            showMessage('JSON格式错误', 'error');
+            return;
+        }
+        
+        // 显示加载状态
+        showMessage('正在测试数据写入...', 'info');
+        
+        // 构造请求数据
+        const requestData = {
+            table_name: tableName,
+            operation: 'add',
+            data: data
+        };
+        
+        // 发送请求
+        const response = await fetch(`${API_BASE_URL}/add`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP错误! 状态: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showMessage('数据写入成功!', 'success');
+            // 清空输入
+            tableNameInput.value = '';
+            dataJsonInput.value = '';
+        } else {
+            throw new Error(result.message || '写入失败');
+        }
+    } catch (error) {
+        showMessage(`写入失败: ${error.message}`, 'error');
+        console.error('测试数据写入错误:', error);
+    }
 }

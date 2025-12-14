@@ -55,6 +55,28 @@ async fn custom_cors(
         HeaderValue::from_str(&config.cors_allow_headers).unwrap(),
     );
 
+    // 添加安全头，防止MIME类型嗅探
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+
+    // 添加缓存控制头，建议浏览器不要缓存API响应
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("no-store, no-cache, must-revalidate, max-age=0"),
+    );
+
+    // 确保JSON响应包含正确的charset
+    if let Some(content_type) = headers.get(header::CONTENT_TYPE) {
+        if content_type.to_str().unwrap_or("").starts_with("application/json") {
+            headers.insert(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json; charset=utf-8"),
+            );
+        }
+    }
+
     res
 }
 

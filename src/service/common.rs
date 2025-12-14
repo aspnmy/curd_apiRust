@@ -171,7 +171,7 @@ impl CommonService {
         };
 
         // 构建WHERE子句
-        let (mut where_clause, mut where_params) = self.build_where_clause(&request.where_conditions)?;
+        let (mut where_clause, mut where_params, has_is_del_condition) = self.build_where_clause(&request.where_conditions)?;
         
         // 添加逻辑表名条件
         if where_clause.is_empty() {
@@ -182,7 +182,8 @@ impl CommonService {
         where_params.push(JsonValue::String(request.table_name.clone()));
         
         // 添加软删除条件，非审计查询只显示未删除的数据
-        if request.audit.unwrap_or(false) == false {
+        // 只有当前端没有提供is_del条件时才自动添加
+        if request.audit.unwrap_or(false) == false && !has_is_del_condition {
             where_clause = format!("{} AND is_del = ${}", where_clause, where_params.len() + 1);
             where_params.push(JsonValue::Bool(false));
         }
@@ -234,7 +235,7 @@ impl CommonService {
         );
 
         // 构建WHERE子句
-        let (mut where_clause, mut where_params) = self.build_where_clause(&request.where_conditions)?;
+        let (mut where_clause, mut where_params, _) = self.build_where_clause(&request.where_conditions)?;
         
         // 添加逻辑表名条件
         if where_clause.is_empty() {
@@ -307,7 +308,7 @@ impl CommonService {
                 ))?;
 
         // 构建WHERE子句
-        let (mut where_clause, mut where_params) = self.build_where_clause(&request.where_conditions)?;
+        let (mut where_clause, mut where_params, _) = self.build_where_clause(&request.where_conditions)?;
         
         // 添加逻辑表名条件
         if where_clause.is_empty() {
@@ -359,10 +360,11 @@ impl CommonService {
     fn build_where_clause(
         &self,
         conditions: &Option<Vec<Condition>>,
-    ) -> Result<(String, Vec<JsonValue>), CommonServiceError> {
+    ) -> Result<(String, Vec<JsonValue>, bool), CommonServiceError> {
         let mut where_clause = String::new();
         let mut where_params = Vec::new();
         let mut param_index = 1;
+        let mut has_is_del_condition = false;
 
         if let Some(conds) = conditions {
             if !conds.is_empty() {
@@ -372,6 +374,11 @@ impl CommonService {
                 for cond in conds {
                     // 验证字段名
                     self.validate_field_name(&cond.field)?;
+
+                    // 检查是否包含is_del条件
+                    if cond.field == "is_del" {
+                        has_is_del_condition = true;
+                    }
 
                     // 对于JSONB字段，使用 ->> 操作符进行查询
                     let field_expr = if cond.field == "id" || cond.field == "table_name" || cond.field == "is_rols" || cond.field == "is_del" || cond.field == "is_date" || cond.field == "created_at" || cond.field == "updated_at" {
@@ -392,7 +399,7 @@ impl CommonService {
             }
         }
 
-        Ok((where_clause, where_params))
+        Ok((where_clause, where_params, has_is_del_condition))
     }
 
     /// 验证字段名
@@ -457,6 +464,7 @@ impl CommonService {
                 }
             };
 
+            // 直接插入所有字段，保持原始结构
             result
                 .as_object_mut()
                 .unwrap()

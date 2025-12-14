@@ -45,7 +45,7 @@ services:
       - "7981:8000"                         # 端口映射：主机端口:容器端口
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
     volumes:
-      - write_logs:/app/logs                # 挂载日志目录到主机，实现日志持久化
+      - write_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化
 
 
   # 读取节点 - 负责处理读操作
@@ -89,7 +89,7 @@ services:
       - "7982:8000"                         # 端口映射：主机端口:容器端口
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
     volumes:
-      - read_logs:/app/logs                # 挂载日志目录到主机，实现日志持久化
+      - read_logs:/app/logs/crud-api                # 挂载日志目录到主机，实现日志持久化
 
 volumes:
   write_logs:                              # 定义写入节点日志目录的卷，用于日志持久化

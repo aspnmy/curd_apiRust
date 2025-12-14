@@ -247,23 +247,26 @@ impl CommonService {
         };
         
         // 添加逻辑表名条件 - 使用file_type字段
+        // 如果file_type是'all'，不添加file_type条件，返回所有类型的记录
         // 如果file_type是'image'，匹配所有图片类型（file_type LIKE 'image/%'）
         // 否则使用精确匹配
-        let (file_type_condition, param_value) = if file_type == "image" {
-            if where_clause.is_empty() {
-                ("WHERE file_type LIKE $1".to_string(), JsonValue::String("image/%".to_string()))
+        if file_type != "all" {
+            let (file_type_condition, param_value) = if file_type == "image" {
+                if where_clause.is_empty() {
+                    ("WHERE file_type LIKE $1".to_string(), JsonValue::String("image/%".to_string()))
+                } else {
+                    (format!("{} AND file_type LIKE ${}", where_clause, where_params.len() + 1), JsonValue::String("image/%".to_string()))
+                }
             } else {
-                (format!("{} AND file_type LIKE ${}", where_clause, where_params.len() + 1), JsonValue::String("image/%".to_string()))
-            }
-        } else {
-            if where_clause.is_empty() {
-                ("WHERE file_type = $1".to_string(), JsonValue::String(file_type))
-            } else {
-                (format!("{} AND file_type = ${}", where_clause, where_params.len() + 1), JsonValue::String(file_type))
-            }
-        };
-        where_clause = file_type_condition;
-        where_params.push(param_value);
+                if where_clause.is_empty() {
+                    ("WHERE file_type = $1".to_string(), JsonValue::String(file_type))
+                } else {
+                    (format!("{} AND file_type = ${}", where_clause, where_params.len() + 1), JsonValue::String(file_type))
+                }
+            };
+            where_clause = file_type_condition;
+            where_params.push(param_value);
+        }
         
         // 添加软删除条件，非审计查询只显示未删除的数据
         // 只有当前端没有提供is_del条件时才自动添加

@@ -174,10 +174,13 @@ pub async fn handle_file_type_request(
     debug!("请求详情: {:?}", request);
 
     // 设置file_type字段
-    // 从请求的data中获取file_type值，并将其作为file_type
-    if let serde_json::Value::Object(ref obj) = request.data {
-        if let Some(serde_json::Value::String(file_type)) = obj.get("file_type") {
-            request.file_type = Some(file_type.clone());
+    // 只在request.file_type为空时，从data中获取file_type值
+    // 这样可以优先使用请求头或URL路径中的file_type
+    if request.file_type.is_none() {
+        if let serde_json::Value::Object(ref obj) = request.data {
+            if let Some(serde_json::Value::String(file_type)) = obj.get("file_type") {
+                request.file_type = Some(file_type.clone());
+            }
         }
     }
 

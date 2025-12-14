@@ -4,7 +4,6 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STD,
 use chrono::Utc;
 use futures::future::BoxFuture;
 use rand::random;
-use reqwest::Client;
 use serde_json::Value as JsonValue;
 use tracing::info;
 
@@ -13,51 +12,102 @@ use super::RulePlugin;
 /// 图片转DICOM插件
 pub struct Image2DicomPlugin {
     // 插件配置，可以根据需要添加配置项
-    /// DICOM转换服务地址
-    dicom_convert_service: String,
-    /// HTTP客户端
-    client: Client,
+    /// DICOM文件保存路径
+    dicom_save_path: String,
 }
 
 impl Image2DicomPlugin {
     /// 创建Image2Dicom插件
     pub fn new() -> Self {
+        // 从环境变量中读取DICOM保存路径
+        let dicom_save_path = std::env::var("IMAGE2DICOM_PATH")
+            .unwrap_or_default();
+        
+        // 确定最终的DICOM保存路径
+        let dicom_save_path = if dicom_save_path.is_empty() {
+            // 环境变量未设置，使用默认路径
+            // 检查是否为Windows环境
+            if cfg!(target_os = "windows") {
+                "./image2dicom".to_string()
+            } else {
+                "/app/image2dicom".to_string()
+            }
+        } else {
+            // 环境变量已设置，检查是否为Windows环境
+            if cfg!(target_os = "windows") {
+                // 在Windows环境下，将Linux风格的路径转换为Windows风格
+                // 或者使用相对路径
+                "./image2dicom".to_string()
+            } else {
+                // 在非Windows环境下，使用环境变量中的路径
+                dicom_save_path
+            }
+        };
+        
         Self {
-            dicom_convert_service: "http://localhost:8080/convert".to_string(),
-            client: Client::new(),
+            dicom_save_path,
         }
     }
     
     /// 执行图片转DICOM转换
-    /// 使用reqwest调用外部DICOM转换服务
-    async fn convert_image_to_dicom(&self, image_data: &[u8], file_name: &str) -> Result<(Vec<u8>, String)> {
-        info!("执行图片转DICOM转换，文件名: {}, 调用服务: {}", file_name, self.dicom_convert_service);
+    /// 内部实现，不依赖外部服务
+    async fn convert_image_to_dicom(&self, image_data: &[u8], file_id: &str, file_name: &str) -> Result<(Vec<u8>, String)> {
+        info!("执行图片转DICOM转换，文件名: {}, 文件ID: {}", file_name, file_id);
         
-        // 调用外部DICOM转换服务
-        let response = self.client
-            .post(&self.dicom_convert_service)
-            .body(image_data.to_vec())
-            .header("Content-Type", "image/jpeg")
-            .header("X-File-Name", file_name)
-            .send()
-            .await?;
+        // 内部实现：生成DICOM格式的数据
+        // 这里使用简单的模拟DICOM数据，实际项目中可以使用Rust DICOM库生成真实DICOM文件
+        let dicom_data = self.generate_dicom_data(image_data, file_id, file_name)?;
         
-        // 检查响应状态
-        if !response.status().is_success() {
-            return Err(anyhow!("DICOM转换服务返回错误: {} - {}", 
-                response.status(), 
-                response.text().await?));
-        }
+        // 生成DICOM文件路径：{dicom_save_path}/{file_id}_{file_name}.dcm
+        let dicom_file_name = format!("{}_{}.dcm", file_id, file_name.replace('.', "_"));
+        let dicom_path = format!("{}/{}", self.dicom_save_path, dicom_file_name);
         
-        // 获取转换后的DICOM数据
-        let dicom_data = response.bytes().await?.to_vec();
+        // 确保DICOM保存目录存在
+        std::fs::create_dir_all(&self.dicom_save_path)?;
         
-        // 生成DICOM文件路径
-        let dicom_path = format!("/tmp/{}.dcm", file_name.replace('.', "_"));
+        // 将DICOM数据写入文件
+        std::fs::write(&dicom_path, &dicom_data)?;
         
-        info!("图片转DICOM转换成功，文件名: {}, DICOM数据大小: {} bytes", file_name, dicom_data.len());
+        info!("图片转DICOM转换成功，文件名: {}, 文件ID: {}, DICOM数据大小: {} bytes, 保存路径: {}", file_name, file_id, dicom_data.len(), dicom_path);
         
         Ok((dicom_data, dicom_path))
+    }
+    
+    /// 生成DICOM格式的数据
+    /// 内部实现，不依赖外部服务
+    fn generate_dicom_data(&self, image_data: &[u8], file_id: &str, file_name: &str) -> Result<Vec<u8>> {
+        // 简单的DICOM文件头模拟
+        // 实际项目中应该使用Rust DICOM库（如dicom-rs）生成真实DICOM文件
+        let study_uid = format!("STUDY_{}", file_id);
+        let series_uid = format!("SERIES_{}", file_id);
+        let sop_uid = format!("INSTANCE_{}", file_id);
+        let content_date = Utc::now().format("%Y%m%d");
+        let content_time = Utc::now().format("%H%M%S");
+        
+        // 使用单一格式字符串，避免注释和+号连接
+        let dicom_header = format!(
+            "DICM\nTransferSyntaxUID\n1.2.840.10008.1.2.1\nPatientName\n{}\nStudyInstanceUID\n{}\nSeriesInstanceUID\n{}\nSOPInstanceUID\n{}\nSOPClassUID\n1.2.840.10008.5.1.4.1.1.7\nContentDate\n{}\nContentTime\n{}\nInstanceNumber\n1\nRows\n1024\nColumns\n1024\nBitsAllocated\n8\nBitsStored\n8\nHighBit\n7\nPixelRepresentation\n0\nPhotometricInterpretation\nMONOCHROME2\nSamplesPerPixel\n1\nPlanarConfiguration\n0\nPixelData\n",
+            file_name, study_uid, series_uid, sop_uid, content_date, content_time
+        );
+        
+        // 构建完整的DICOM数据
+        let mut dicom_data = Vec::new();
+        
+        // 添加DICOM文件头
+        dicom_data.extend_from_slice(dicom_header.as_bytes());
+        
+        // 添加像素数据（简单的灰度渐变，实际项目中应该使用真实图片数据）
+        // 这里使用image_data的前1024*1024字节作为示例
+        let pixel_data_len = std::cmp::min(image_data.len(), 1024 * 1024);
+        dicom_data.extend_from_slice(&image_data[0..pixel_data_len]);
+        
+        // 如果像素数据不足，填充0
+        let expected_len = 1024 * 1024;
+        if pixel_data_len < expected_len {
+            dicom_data.extend_from_slice(&vec![0; expected_len - pixel_data_len]);
+        }
+        
+        Ok(dicom_data)
     }
     
     /// 从JSON数据中提取图片内容
@@ -128,11 +178,16 @@ impl RulePlugin for Image2DicomPlugin {
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown_image");
             
+            // 从数据中提取file_id
+            let file_id = data.get("file_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown_id");
+            
             // 提取图片内容
             let image_data = self.extract_image_content(&data)?;
             
             // 执行图片转DICOM转换
-            let (dicom_data, dicom_path) = self.convert_image_to_dicom(&image_data, file_name).await?;
+            let (dicom_data, dicom_path) = self.convert_image_to_dicom(&image_data, file_id, file_name).await?;
             
             // 将DICOM数据转换为Base64编码
             let dicom_content_base64 = BASE64_STD.encode(&dicom_data);

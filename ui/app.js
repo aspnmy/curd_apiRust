@@ -259,14 +259,14 @@ async function loadImages() {
         // 构造请求数据（符合服务器期望的格式）
         const showAll = document.getElementById('showAllCheckbox').checked;
         const requestData = {
-            file_type: 'image',  // 使用正确的file_type值
+            file_type: 'all',  // 获取所有类型的文件，包括img2dicom
             operation: 'check',       // 操作类型
             data: {},                 // 重要：data字段是必填的，不能为空
             where_conditions: showAll ? null : [  // showAll为true时设置为null
-                { 
-                    field: 'is_del', 
-                    operator: '=', 
-                    value: false 
+                {
+                    field: 'is_del',
+                    operator: '=',
+                    value: false
                 }
             ],
             audit: false
@@ -337,7 +337,7 @@ async function searchImages() {
         });
         
         const requestData = {
-            file_type: 'image', // 统一使用file_type字段，替换旧的table_name
+            file_type: 'all', // 获取所有类型的文件，包括img2dicom
             operation: 'check',
             data: {},                 // 重要：data字段是必填的，不能为空
             where_conditions: where_conditions.length > 0 ? where_conditions : null,
@@ -385,7 +385,13 @@ function renderImageList(images) {
         const isDeleted = image.is_del || false;
         
         // 使用正确的图片内容字段名
-        const imageContent = image.file_content || image.image_content || '';
+        // 对于img2dicom和dicom类型，优先使用dicom_content作为预览
+        let imageContent = '';
+        if (image.file_type === 'img2dicom' || image.file_type === 'dicom') {
+            imageContent = image.dicom_content || image.file_content || image.image_content || '';
+        } else {
+            imageContent = image.file_content || image.image_content || '';
+        }
         
         // 获取唯一标识
         const itemId = image.id || image.file_id;
@@ -444,7 +450,7 @@ async function showImageDetail(id) {
         
         // 构造请求数据（符合服务器期望的格式）
         const requestData = {
-            file_type: 'image', // 统一使用file_type字段，替换旧的table_name
+            file_type: 'all', // 获取所有类型的文件，包括img2dicom
             operation: 'check',
             data: {},                 // 重要：data字段是必填的，不能为空
             where_conditions: [
@@ -490,7 +496,13 @@ function renderImageDetail(image) {
     const isDeleted = image.is_del || false;
     
     // 使用正确的图片内容字段名
-    const imageContent = image.file_content || image.image_content || '';
+    // 对于img2dicom和dicom类型，优先使用dicom_content作为预览
+    let imageContent = '';
+    if (image.file_type === 'img2dicom' || image.file_type === 'dicom') {
+        imageContent = image.dicom_content || image.file_content || image.image_content || '';
+    } else {
+        imageContent = image.file_content || image.image_content || '';
+    }
     
     const html = `
         <div class="detail-image">

@@ -120,11 +120,50 @@ impl CommonService {
     }
 
     /// 添加记录
-    async fn add(&self, request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
+    async fn add(&self, mut request: CommonRequest) -> Result<CommonResponse, CommonServiceError> {
         info!(
             "执行添加操作，逻辑表名: {}, 数据: {:?}",
             request.table_name, request.data
         );
+
+        // 处理img2dicom类型的特殊要求
+        if let serde_json::Value::Object(ref mut obj) = request.data {
+            // 检查是否为img2dicom类型
+            if let Some(serde_json::Value::String(file_type)) = obj.get("file_type") {
+                if file_type == "img2dicom" {
+                    info!("处理img2dicom类型的添加操作");
+                    
+                    // 根据img2dicom.rule.md要求，执行转换逻辑
+                    // 1. 检查是否包含image_content字段
+                    if let Some(serde_json::Value::String(image_content)) = obj.get("image_content") {
+                        info!("找到image_content，开始img2dicom转换");
+                        
+                        // TODO: 实现实际的img2dicom转换逻辑
+                        // 这里应该调用后端独立的img2dicom转换方法，将image文件转换为dicom文件
+                        // 转换后的dicom文件，需要将dicom文件的内容base64编码后，存储到dicom_content字段中
+                        // 转换成功后的dicom文件，需要将dicom文件的路径存储到dicom_path字段中
+                        // 无论是否转换成功，都需要将image文件的base64编码后的内容存储到image_content字段中
+                        
+                        // 目前使用模拟数据，实际开发中需要替换为真实的转换逻辑
+                        let dicom_content = "simulated_dicom_content_base64".to_string();
+                        let dicom_path = "simulated/dicom/path.dcm".to_string();
+                        
+                        // 更新datainfos字段
+                        obj.insert("image_content".to_string(), serde_json::Value::String(image_content.clone()));
+                        obj.insert("dicom_content".to_string(), serde_json::Value::String(dicom_content));
+                        obj.insert("dicom_path".to_string(), serde_json::Value::String(dicom_path));
+                        
+                        info!("img2dicom转换完成");
+                    } else {
+                        info!("未找到image_content字段，跳过img2dicom转换");
+                        // 确保image_content字段存在
+                        obj.insert("image_content".to_string(), serde_json::Value::String("".to_string()));
+                        obj.insert("dicom_content".to_string(), serde_json::Value::String("".to_string()));
+                        obj.insert("dicom_path".to_string(), serde_json::Value::String("".to_string()));
+                    }
+                }
+            }
+        }
 
         // 生成SQL语句 - 使用通用表结构
         let sql = format!(

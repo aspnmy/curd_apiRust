@@ -949,7 +949,7 @@ window.testFileTypeApi = async function() {
         
         // 初始化请求数据
         let requestData = {
-            table_name: tableName || `${fileType}_data`, // 如果没有提供表名，使用默认表名
+            table_name: 'common_data', // 所有数据都写在common_data表中
             operation: operation,
             data: {}
         };
@@ -983,7 +983,7 @@ window.testFileTypeApi = async function() {
             // 获取用户出口IP地址
             const fileUploadIp = await getUserIpAddress();
             
-            // 构建完整的文件元数据
+            // 构建基础文件元数据
             const fileMetadata = {
                 file_id: fileId,
                 file_name: selectedFile.name,
@@ -995,9 +995,26 @@ window.testFileTypeApi = async function() {
                 file_upload_user: 'current_user', // 实际项目中应从登录信息获取
                 file_upload_ip: fileUploadIp,
                 file_roles: ['user'], // 实际项目中应根据用户角色设置
-                file_status: 'active',
-                file_content: base64Content
+                file_status: 'active'
             };
+            
+            // 处理img2dicom类型的特殊要求
+            if (fileType === 'img2dicom') {
+                console.log('处理img2dicom类型的文件上传');
+                
+                // 根据img2dicom.rule.md要求，设置特殊字段
+                // image_content: 上传的image文件的base64编码后的内容
+                // dicom_path: 转换后的dicom文件的路径（后端填充）
+                // dicom_content: dicom文件base64编码后的内容（后端填充）
+                Object.assign(fileMetadata, {
+                    image_content: base64Content, // 将图片内容存储到image_content字段
+                    dicom_path: '', // 初始化为空，后端会填充
+                    dicom_content: '' // 初始化为空，后端会填充
+                });
+            } else {
+                // 普通文件类型，使用file_content字段
+                fileMetadata.file_content = base64Content;
+            }
             
             // 合并文件元数据和用户提供的数据（用户数据优先级更高）
             requestData.data = {
@@ -1017,60 +1034,119 @@ window.testFileTypeApi = async function() {
         
         // 构建API URL，格式：/api/common/{file_type}/{operation}
         const apiUrl = `${API_BASE_URL}/common/${fileType}/${operation}`;
+        console.log('构建的API URL:', apiUrl);
+        console.log('API_BASE_URL配置:', API_BASE_URL);
+        console.log('fileType:', fileType);
+        console.log('operation:', operation);
+        
+        // 检查API URL格式是否正确
+        if (!apiUrl.startsWith('http')) {
+            console.error('API URL格式错误，缺少协议:', apiUrl);
+            showMessage('API URL配置错误，缺少协议', 'error');
+            return;
+        }
         
         // 发送请求
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestData)
-        });
-        
-        // 获取响应状态和内容
-        const statusText = `${response.status} ${response.statusText}`;
-        let resultContent;
-        
         try {
-            resultContent = await response.json();
-        } catch (parseError) {
-            resultContent = await response.text();
+            console.log('开始发送请求...');
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            });
+            console.log('请求发送成功，等待响应...');
+            
+            // 获取响应状态和内容
+            const statusText = `${response.status} ${response.statusText}`;
+            console.log('响应状态:', statusText);
+            
+            let resultContent;
+            try {
+                resultContent = await response.json();
+                console.log('响应数据(JSON):', resultContent);
+            } catch (parseError) {
+                resultContent = await response.text();
+                console.log('响应数据(文本):', resultContent);
+            }
+            
+            // 显示结果
+            const resultHtml = `
+                <h3>请求结果</h3>
+                <div style="margin-bottom: 10px;">
+                    <strong>请求URL:</strong> ${apiUrl}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>请求方法:</strong> POST
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>响应状态:</strong> <span style="color: ${response.ok ? 'green' : 'red'}">${statusText}</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>请求数据:</strong>
+                    <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(requestData, null, 2)}</pre>
+                </div>
+                <div>
+                    <strong>响应数据:</strong>
+                    <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent, null, 2)}</pre>
+                </div>
+            `;
+            
+            resultDiv.innerHTML = resultHtml;
+            resultDiv.style.display = 'block';
+            
+            // 滚动到结果区域
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            if (response.ok) {
+                showMessage('API测试成功!', 'success');
+            } else {
+                showMessage('API测试失败!', 'error');
+            }
+        } catch (fetchError) {
+            console.error('请求发送失败:', fetchError);
+            
+            // 显示详细的错误信息
+            const errorHtml = `
+                <h3>请求失败</h3>
+                <div style="margin-bottom: 10px;">
+                    <strong>请求URL:</strong> ${apiUrl}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>请求方法:</strong> POST
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>错误类型:</strong> <span style="color: red;">${fetchError.name}</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>错误信息:</strong> <span style="color: red;">${fetchError.message}</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>请求数据:</strong>
+                    <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(requestData, null, 2)}</pre>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>错误详情:</strong>
+                    <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; color: red;">${JSON.stringify(fetchError, Object.getOwnPropertyNames(fetchError), 2)}</pre>
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; color: #856404;">
+                    <strong>调试建议:</strong><br>
+                    1. 确认后端服务是否正在运行<br>
+                    2. 检查API URL是否正确<br>
+                    3. 检查网络连接<br>
+                    4. 查看浏览器开发者工具的Network和Console标签页获取更多信息
+                </div>
+            `;
+            
+            resultDiv.innerHTML = errorHtml;
+            resultDiv.style.display = 'block';
+            
+            // 滚动到结果区域
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            showMessage(`API请求失败: ${fetchError.message}`, 'error');
         }
-        
-        // 显示结果
-        const resultHtml = `
-            <h3>请求结果</h3>
-            <div style="margin-bottom: 10px;">
-                <strong>请求URL:</strong> ${apiUrl}
-            </div>
-            <div style="margin-bottom: 10px;">
-                <strong>请求方法:</strong> POST
-            </div>
-            <div style="margin-bottom: 10px;">
-                <strong>响应状态:</strong> <span style="color: ${response.ok ? 'green' : 'red'}">${statusText}</span>
-            </div>
-            <div style="margin-bottom: 10px;">
-                <strong>请求数据:</strong>
-                <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(requestData, null, 2)}</pre>
-            </div>
-            <div>
-                <strong>响应数据:</strong>
-                <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent, null, 2)}</pre>
-            </div>
-        `;
-        
-        resultDiv.innerHTML = resultHtml;
-        resultDiv.style.display = 'block';
-        
-        // 滚动到结果区域
-        resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        if (response.ok) {
-            showMessage('API测试成功!', 'success');
-        } else {
-            showMessage('API测试失败!', 'error');
-        }
-        
     } catch (error) {
         showMessage(`API测试失败: ${error.message}`, 'error');
         console.error('基于file_type的API测试错误:', error);

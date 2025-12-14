@@ -175,10 +175,36 @@ pub async fn handle_file_type_request(
     // 设置请求的操作类型
     request.operation = operation.clone();
     
-    // 根据file_type映射到对应的表名
-    // 规则：{file_type}_data (例如：image -> image_data, dicom -> dicom_data)
-    let table_name = format!("{}_data", file_type);
-    request.table_name = table_name;
+    // 所有数据都写在common_data表中
+    request.table_name = "common_data".to_string();
+    
+    // 在data中添加file_type字段，用于区分不同类型的文件
+    if let serde_json::Value::Object(ref mut obj) = request.data {
+        // 添加file_type字段
+        obj.insert("file_type".to_string(), serde_json::Value::String(file_type.clone()));
+        
+        // 处理img2dicom类型的特殊要求
+        if file_type == "img2dicom" {
+            // 根据img2dicom.rule.md要求，添加必要的字段
+            // 这些字段将在服务层或转换方法中被填充
+            // image_content: 上传的image文件的base64编码后的内容
+            // dicom_path: 转换后的dicom文件的路径
+            // dicom_content: dicom文件base64编码后的内容
+            
+            // 确保这些字段存在，即使它们的值是空的
+            if !obj.contains_key("image_content") {
+                obj.insert("image_content".to_string(), serde_json::Value::String("".to_string()));
+            }
+            
+            if !obj.contains_key("dicom_path") {
+                obj.insert("dicom_path".to_string(), serde_json::Value::String("".to_string()));
+            }
+            
+            if !obj.contains_key("dicom_content") {
+                obj.insert("dicom_content".to_string(), serde_json::Value::String("".to_string()));
+            }
+        }
+    }
     
     // 调用通用请求处理函数
     handle_common_request(Extension(common_service), Json(request)).await

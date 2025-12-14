@@ -2,3 +2,6 @@ target/
 .env
 .trae/documents/
 vendor/
+**/*.log
+logs/
+logs/app.log

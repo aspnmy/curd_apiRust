@@ -1,0 +1,14 @@
+## img2dicom 类型的文件特别说明
+- img2dicom 类型的文件，是指将image文件如jpg、png、gif、bmp等图片文件转换为dicom文件
+- 转换后的dicom文件，包含了image文件的所有信息，如像素数据、元数据等
+- img2dicom 表中的datainfos字段中,增加了一个字段image_content,表示上传的image文件的base64编码后的内容，增加一个dicom_path字段,表示转换后的dicom文件的路径，增加一个字段dicom_content,表示dicom文件base64编码后的内容
+- 查询img2dicom 类型的文件时，返回的datainfos字段中，包含了image_content、dicom_path、dicom_content这3个字段
+- 前端渲染的时候如果dicom_content字段中的数据可以直接渲染成功就不需要读取dicom_path字段中的数据，如果直接渲染失败，再读取dicom_path字段中的数据，如果dicom_path字段中的数据渲染失败，则取image_content字段中的数据渲染；
+- 前端要自行实现dicom数据的展示，如使用dicom.js库等
+
+### img2dicom 后端特殊方法的实现
+- 当前端使用api/common/img2dicom/add端点上传图片数据的时候：
+应该直接调用后端独立的img2dicom转换方法，将image文件转换为dicom文件；
+转换后的dicom文件，需要将dicom文件的内容base64编码后，存储到dicom_content字段中；
+转换成功后的dicom文件，需要将dicom文件的路径存储到dicom_path字段中；
+无论是否转换成功，都需要将image文件的base64编码后的内容存储到image_content字段中；

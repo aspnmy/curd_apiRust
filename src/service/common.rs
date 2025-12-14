@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::Utc;
 use serde_json::Value as JsonValue;
-use sqlx::{Column, Postgres, Row, query};
+use sqlx::{Postgres, Row, query};
 use thiserror::Error;
 use tracing::{debug, error, info};
 
@@ -441,37 +441,18 @@ impl CommonService {
     }
 
     /// 将数据库行转换为JSON
+    /// 直接返回 datainfos 字段的内容，确保业务通用性
+    /// 参数:
+    /// - row: 数据库查询返回的行数据
+    /// 返回值:
+    /// - Result<JsonValue, CommonServiceError>: 转换后的JSON数据或错误信息
     async fn row_to_json(
         &self,
         row: &sqlx::postgres::PgRow,
     ) -> Result<JsonValue, CommonServiceError> {
-        let columns = row.columns();
-        let mut result = JsonValue::Object(serde_json::Map::new());
-
-        for column in columns {
-            // 使用Column trait的name()方法获取列名
-            let column_name = column.name();
-
-            // 使用row.try_get方法获取值，支持泛型转换
-            let json_value = match row.try_get::<serde_json::Value, _>(column_name) {
-                Ok(val) => val,
-                Err(_) => {
-                    // 如果无法直接转换为JSON，尝试转换为字符串
-                    match row.try_get::<String, _>(column_name) {
-                        Ok(s) => JsonValue::String(s),
-                        Err(_) => JsonValue::Null,
-                    }
-                }
-            };
-
-            // 直接插入所有字段，保持原始结构
-            result
-                .as_object_mut()
-                .unwrap()
-                .insert(column_name.to_string(), json_value);
-        }
-
-        Ok(result)
+        // 直接获取 datainfos 字段的值，该字段存储了所有业务数据
+        let datainfos = row.try_get::<serde_json::Value, _>("datainfos")?;
+        Ok(datainfos)
     }
 
     /// 获取服务健康状态

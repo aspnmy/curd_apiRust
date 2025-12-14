@@ -1,4 +1,4 @@
-use axum::{Extension, Json, http::StatusCode};
+use axum::{Extension, Json, http::StatusCode, extract::Path};
 use std::sync::Arc;
 use tracing::{info, error, debug};
 
@@ -155,4 +155,31 @@ pub async fn get_logs(
             (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": format!("{}", e)})))
         }
     }
+}
+
+/// 处理基于file_type的API请求
+/// 路径结构: /api/common/{file_type}/{add、check、update、isdel}
+pub async fn handle_file_type_request(
+    Extension(common_service): Extension<Arc<CommonService>>,
+    Path(params): Path<(String, String)>, // (file_type, operation)
+    Json(mut request): Json<CommonRequest>,
+) -> (StatusCode, Json<CommonResponse>) {
+    // 从路径参数中提取file_type和operation
+    let (file_type, operation) = params;
+    
+    // 记录请求信息
+    info!("接收基于file_type的请求 - file_type: {}, operation: {}, 服务ID: {}", 
+        file_type, operation, common_service.config.service.id);
+    debug!("请求详情: {:?}", request);
+    
+    // 设置请求的操作类型
+    request.operation = operation.clone();
+    
+    // 根据file_type映射到对应的表名
+    // 规则：{file_type}_data (例如：image -> image_data, dicom -> dicom_data)
+    let table_name = format!("{}_data", file_type);
+    request.table_name = table_name;
+    
+    // 调用通用请求处理函数
+    handle_common_request(Extension(common_service), Json(request)).await
 }

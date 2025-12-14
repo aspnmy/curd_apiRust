@@ -81,39 +81,70 @@ async fn main() {
         .expect("无法初始化数据库连接池");
 
     // 根据环境变量决定是否运行数据库迁移
-    if std::env::var("RUN_MIGRATIONS").unwrap_or("true".to_string()) == "true" {
+    let should_run_migrations = std::env::var("RUN_MIGRATIONS").unwrap_or("true".to_string()) == "true";
+    
+    if should_run_migrations {
         // 获取迁移策略
-        let migration_strategy =
+        let migration_strategy = 
             std::env::var("MIGRATION_STRATEGY").unwrap_or("strict".to_string());
 
-        // 运行数据库迁移
-        info!("开始执行数据库迁移，策略: {}", migration_strategy);
-        let result = run_migrations(&db_pool).await;
+        info!("准备执行数据库迁移，策略: {}", migration_strategy);
+        
+        // 根据迁移策略决定是否执行迁移
+        match migration_strategy.as_str() {
+            "ignore" | "repair" => {
+                // 忽略或修复策略：执行迁移
+                info!("执行数据库迁移");
+                let result = run_migrations(&db_pool).await;
 
-        match result {
-            Ok(_) => {
-                info!("数据库迁移成功");
+                match result {
+                    Ok(_) => {
+                        info!("数据库迁移成功");
+                    }
+                    Err(e) => {
+                        info!("数据库迁移失败: {:?}", e);
+                        
+                        if migration_strategy == "ignore" {
+                            // 忽略策略：跳过迁移错误，继续运行服务
+                            info!("忽略迁移错误，继续运行服务");
+                        } else {
+                            // 修复策略：尝试修复迁移记录
+                            info!("尝试修复迁移记录，但修复功能尚未实现");
+                            // 注意：修复操作需要谨慎使用，建议在开发环境测试后再在生产环境使用
+                        }
+                    }
+                };
             }
-            Err(e) => {
-                info!("数据库迁移失败: {:?}", e);
-
-                match migration_strategy.as_str() {
-                    "ignore" => {
-                        // 忽略策略：跳过迁移错误，继续运行服务
-                        info!("忽略迁移错误，继续运行服务");
+            "strict" => {
+                // 严格策略：检查迁移状态，如果需要迁移则执行，否则跳过
+                info!("严格模式：检查迁移状态");
+                
+                // 执行迁移，严格模式下迁移失败会导致程序退出
+                let result = run_migrations(&db_pool).await;
+                
+                match result {
+                    Ok(_) => {
+                        info!("数据库迁移成功");
                     }
-                    "repair" => {
-                        // 修复策略：尝试修复迁移记录
-                        info!("尝试修复迁移记录，但修复功能尚未实现");
-                        // 注意：修复操作需要谨慎使用，建议在开发环境测试后再在生产环境使用
-                    }
-                    _ => {
+                    Err(e) => {
+                        info!("数据库迁移失败: {:?}", e);
                         // 严格策略：迁移失败时退出
                         panic!("无法运行数据库迁移: {:?}", e);
                     }
-                }
+                };
             }
-        };
+            _ => {
+                // 未知策略：使用默认的严格模式
+                info!("未知迁移策略，使用默认的严格模式");
+                let result = run_migrations(&db_pool).await;
+                
+                if let Err(e) = result {
+                    panic!("无法运行数据库迁移: {:?}", e);
+                }
+                
+                info!("数据库迁移成功");
+            }
+        }
     } else {
         info!("跳过数据库迁移，RUN_MIGRATIONS环境变量设置为false");
     }

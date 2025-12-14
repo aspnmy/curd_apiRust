@@ -1,15 +1,69 @@
 use axum::{Extension, Router, http::StatusCode, routing::get, routing::post, middleware};
-use axum_cors::cors;
+use axum::middleware::Next;
 use std::sync::Arc;
+use axum::{body::Body, extract::Request, http::{header, HeaderValue, Method}, response::IntoResponse};
 
 use crate::api::handlers::common_handlers;
 use crate::config::AppConfig;
 use crate::service::common::CommonService;
 
+/// 自定义CORS中间件
+async fn custom_cors(
+    Extension(config): Extension<AppConfig>,
+    req: Request<Body>,
+    next: Next
+) -> impl IntoResponse {
+    let origin = req
+        .headers()
+        .get(header::ORIGIN)
+        .map(|i| i.to_str().map(|s| s.to_owned()));
+
+    let is_options = req.method() == Method::OPTIONS;
+    let mut res = if is_options {
+        let mut res = "".into_response();
+        res.headers_mut().insert(
+            header::ACCESS_CONTROL_MAX_AGE,
+            HeaderValue::from_static("9999999"),
+        );
+        res
+    } else {
+        next.run(req).await
+    };
+
+    let headers = res.headers_mut();
+
+    if let Some(Ok(origin)) = origin {
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            HeaderValue::from_str(&origin).unwrap(),
+        );
+    }
+
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+        HeaderValue::from_static("true"),
+    );
+
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_static("*"),
+    );
+
+    // 添加Access-Control-Allow-Headers头，使用配置的值
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_str(&config.cors_allow_headers).unwrap(),
+    );
+
+    res
+}
+
 /// 404处理程序
 async fn not_found_handler() -> (StatusCode, &'static str) {
     (StatusCode::NOT_FOUND, "404 Not Found - CRUD API服务")
 }
+
+
 
 /// 创建API路由
 pub fn create_router(common_service: Arc<CommonService>, config: AppConfig) -> Router {
@@ -30,7 +84,7 @@ pub fn create_router(common_service: Arc<CommonService>, config: AppConfig) -> R
                 .route("/isdel", post(common_handlers::handle_common_request))
         })
         // 添加CORS中间件
-        .route_layer(middleware::from_fn(cors))
+        .route_layer(middleware::from_fn(custom_cors))
         // 添加其他中间件
         .layer(Extension(common_service))
         .layer(Extension(config.clone()));

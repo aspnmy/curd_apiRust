@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 axum = "0.7.9"
-axum_cors = "0.1.7"
 tokio = { version = "1.48.0", features = ["full"] }
 sqlx = { version = "0.7.4", features = ["postgres", "chrono", "json", "runtime-tokio"] }
 serde = { version = "1.0.203", features = ["derive"] }

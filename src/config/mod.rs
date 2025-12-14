@@ -19,6 +19,8 @@ pub struct AppConfig {
     pub service: ServiceRoleConfig,
     /// 允许操作的表名白名单
     pub allowed_tables: Vec<String>,
+    /// 允许的CORS头
+    pub cors_allow_headers: String,
 }
 
 /// 服务器配置
@@ -133,6 +135,7 @@ impl AppConfig {
                 id: env::var("SERVICE_ID").unwrap_or("crud-01".to_string()),
             },
             allowed_tables,
+            cors_allow_headers: env::var("CORS_ALLOW_HEADERS").unwrap_or("*".to_string()),
         };
 
         Ok(config)

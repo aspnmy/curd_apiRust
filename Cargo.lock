@@ -37,15 +37,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
-name = "aok"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a8746a6637032084d12397dcd4b1f93d7c5e27dab4a2abe37515e5dadb7cdad"
-dependencies = [
- "anyhow",
-]
-
-[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -130,16 +121,6 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
-]
-
-[[package]]
-name = "axum_cors"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2afeb16d559cdf67ee45603c95760fe8afc88eaf6cb7b03fa4a5f27be350daa"
-dependencies = [
- "aok",
- "axum",
 ]
 
 [[package]]
@@ -287,7 +268,6 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",
- "axum_cors",
  "chrono",
  "dotenvy",
  "serde",

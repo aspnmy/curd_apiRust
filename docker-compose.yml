@@ -36,6 +36,8 @@ services:
       - RUN_MIGRATIONS=true                  # 是否运行数据库迁移，写入节点需要设置为true
       - MIGRATION_STRATEGY=${MIGRATION_STRATEGY}            # 生产环境使用忽略策略，迁移失败时继续运行
       
+      # CORS头配置
+      - CORS_ALLOW_HEADERS=${CORS_ALLOW_HEADERS:-*}  # 允许的CORS头，默认允许所有
     ports:
       - "7981:8000"                         # 端口映射：主机端口:容器端口
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
@@ -71,6 +73,9 @@ services:
       - ALLOWED_TABLES=users,resources,encryption_keys  # 允许操作的表名白名单，逗号分隔
       - RUN_MIGRATIONS=false                 # 是否运行数据库迁移，读取节点设置为false
       
+      # CORS头配置
+      - CORS_ALLOW_HEADERS=${CORS_ALLOW_HEADERS:-*}  # 允许的CORS头，默认允许所有
+    
     ports:
       - "7982:8000"                         # 端口映射：主机端口:容器端口
     restart: unless-stopped                  # 重启策略：除非手动停止，否则自动重启
